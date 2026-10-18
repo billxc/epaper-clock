@@ -1,0 +1,8 @@
+menu "Clock"
+config CLOCK_TIMEZONE
+    string "POSIX time zone"
+    default "CST-8"
+    help
+        RTC stores local time. Default is UTC+8 (China). After changing this,
+        set the clock again over USB. No network or Wi-Fi credentials needed.
+endmenu
