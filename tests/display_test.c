@@ -33,8 +33,10 @@ int main(int argc, char **argv)
     screen_render(frame, "是否进入初始化／配网？", confirm, 2, 0);
     save(argv[1], "initialize");
     struct tm time = {.tm_year = 126, .tm_mon = 9, .tm_mday = 20, .tm_hour = 23, .tm_min = 59};
-    clock_render(frame, &time, true, -40.0f, 100.0f, 100);
+    clock_render(frame, &time, true, 23.6f, 58.2f, 85);
     save(argv[1], "clock");
+    clock_render(frame, &time, true, -40.0f, 100.0f, 100);
+    save(argv[1], "clock-extreme");
     clock_render(frame, &time, false, NAN, NAN, -1);
     save(argv[1], "clock-unset");
     puts("PASS: Chinese menu/confirmation/clock rendering and framebuffer boundaries");

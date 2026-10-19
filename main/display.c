@@ -59,6 +59,16 @@ static void ui_text(uint8_t *frame, int x, int y, const char *value, bool invers
     }
 }
 
+static int ui_text_width(const char *value)
+{
+    int width = 0;
+    while (*value) {
+        uint32_t cp = next_codepoint(&value);
+        width += cp >= 32 && cp < 127 ? UI_FONT_ASCII_ADVANCE : UI_FONT_WIDTH;
+    }
+    return width;
+}
+
 void screen_render(uint8_t *frame, const char *title,
                    const char *const *lines, size_t count, int selected)
 {
@@ -128,28 +138,32 @@ void clock_render(uint8_t *frame, const struct tm *time, bool valid_time,
                   float temperature, float humidity, int battery)
 {
     memset(frame, 0xff, CLOCK_FRAME_SIZE);
+    // A shared 64px side inset; readings occupy two equal-width columns.
+    const int margin = 64;
+    const int temperature_center = margin + (CLOCK_WIDTH - 2 * margin) / 4;
+    const int humidity_center = CLOCK_WIDTH - temperature_center;
     char value[48];
     if (valid_time) {
         strftime(value, sizeof(value), "%Y年%m月%d日", time);
-        ui_text(frame, 52, 30, value, false);
+        ui_text(frame, margin, 48, value, false);
         strftime(value, sizeof(value), "%H:%M", time);
     } else {
-        ui_text(frame, 52, 30, "尚未设置时间", false);
+        ui_text(frame, margin, 48, "尚未设置时间", false);
         strcpy(value, "--:--");
     }
     number_text(frame, (CLOCK_WIDTH - number_width(CLOCK_FONT_TIME, value)) / 2,
                 280, CLOCK_FONT_TIME, value);
-    rectangle(frame, 52, 78, 696, 1);
-    rectangle(frame, 52, 320, 696, 1);
-    ui_text(frame, 56, 338, "温度", false);
-    ui_text(frame, 448, 338, "湿度", false);
+    ui_text(frame, temperature_center - ui_text_width("温度") / 2, 344, "温度", false);
+    ui_text(frame, humidity_center - ui_text_width("湿度") / 2, 344, "湿度", false);
     if (isfinite(temperature)) snprintf(value, sizeof(value), "%.1f℃", temperature);
     else strcpy(value, "--.-℃");
-    number_text(frame, 56, 408, CLOCK_FONT_VALUE, value);
+    number_text(frame, temperature_center - number_width(CLOCK_FONT_VALUE, value) / 2,
+                408, CLOCK_FONT_VALUE, value);
     if (isfinite(humidity)) snprintf(value, sizeof(value), "%.1f%%", humidity);
     else strcpy(value, "--.-%");
-    number_text(frame, 448, 408, CLOCK_FONT_VALUE, value);
+    number_text(frame, humidity_center - number_width(CLOCK_FONT_VALUE, value) / 2,
+                408, CLOCK_FONT_VALUE, value);
     if (battery >= 0) snprintf(value, sizeof(value), "电量 %d%%", battery);
     else strcpy(value, "电量 --");
-    ui_text(frame, 610, 30, value, false);
+    ui_text(frame, CLOCK_WIDTH - margin - ui_text_width(value), 48, value, false);
 }
