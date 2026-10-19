@@ -11,6 +11,7 @@ Waveshare **ESP32-S3-ePaper-3.97** 节能时钟，ESP-IDF **5.5.2**，16MB Flash
 - [三模式状态机](docs/state-machine.md)
 - [蓝牙设置协议](docs/clock-control.md)
 - [OTA、首次刷入与回滚](docs/ota.md)
+- [四灰模拟与代码／电耗评估（未启用）](docs/grayscale-study.md)
 - [第三方来源与许可](THIRD_PARTY.md)
 
 ## 时钟画面
