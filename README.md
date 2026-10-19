@@ -111,7 +111,7 @@ idf.py build
 idf.py -p /dev/ttyACM0 flash
 ```
 
-已验证版本 **`4ed28b8`**：[CI 构建与下载](https://github.com/billxc/epaper-clock/actions/runs/39220606914)。
+已验证版本 **`5109c43`**：[CI 构建与下载](https://github.com/billxc/epaper-clock/actions/runs/39275624253)。
 在 Artifacts 下载 `epaper-clock-firmware`。应用大小 **1.726MiB**，每个 3MiB OTA 槽剩余约 **1.274MiB**。
 
 `Firmware` workflow 运行协议/菜单/绘图测试并编译固件。应用产物 `epaper-clock.bin` 用于 OTA；

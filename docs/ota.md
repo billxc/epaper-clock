@@ -1,6 +1,6 @@
 # USB 首装、LAN OTA 与回滚
 
-本版使用 ESP-IDF OTA，不是自行编写 bootloader。版本 `4ed28b8` 已通过完整固件构建和软件测试，**尚未完成真实设备 OTA／断电／回滚验收**。
+本版使用 ESP-IDF OTA，不是自行编写 bootloader。版本 `5109c43` 已通过完整固件构建和软件测试，**尚未完成真实设备 OTA／断电／回滚验收**。
 
 ## 分区与兼容边界
 
@@ -19,8 +19,8 @@
 
 ## 首次安装
 
-已验证构建：[4ed28b8 / Firmware](https://github.com/billxc/epaper-clock/actions/runs/39220606914)。
-应用为 1,810,192 字节（1.726MiB），小于单槽 3MiB；合并首装镜像为 1,941,264 字节。
+已验证构建：[5109c43 / Firmware](https://github.com/billxc/epaper-clock/actions/runs/39275624253)。
+应用为 1,810,304 字节（1.726MiB），小于单槽 3MiB；合并首装镜像为 1,941,376 字节。
 
 CI 的 `epaper-clock-firmware` 产物包含：
 
