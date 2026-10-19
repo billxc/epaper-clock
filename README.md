@@ -88,7 +88,8 @@ idf.py -p /dev/ttyACM0 flash
 默认 `CST-8`（UTC+8），改变时区后重新校时。
 
 公开仓库的 `Firmware` workflow 使用官方 ESP-IDF 5.5.2 容器编译并上传固件产物。
-源码检查、协议单测、浏览器模拟不等于实机验证；查看 Actions 确认当前提交是否编译通过。
+固件提交 `ffa09fb` 已通过 [ESP-IDF 5.5.2 完整构建](https://github.com/billxc/epaper-clock/actions/runs/39192673629)，
+可在该运行的 Artifacts 下载 `epaper-clock-firmware`。源码检查、协议单测和浏览器模拟不等于实机验证。
 **目前未进行本板烧录、真实 BLE/路由器联调和电池功耗测量，不承诺具体续航天数。**
 
 板级电源沿用官方公布的电压/充电配置。文档称 TG28，示例使用 AXP2101 接口；

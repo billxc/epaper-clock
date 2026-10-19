@@ -162,8 +162,8 @@ Security1 首包约 41 字节、最大本页面凭据包约 105 字节，不能�
    而是在退出时停止并 deinit controller/host。此策略仍需以实机电流和第二次进入管理确认。
 7. 不记录 PoP/密钥/凭据 DEBUG 日志；PoP 不放 URL 或仓库。NVS 未加密仍有物理读取风险。
 
-以上是源码接口，不代表已完成 ESP-IDF 编译、烧录或浏览器联调。
-仍需验收：实际构建、正确的 BLE host/controller 配置、设备屏幕最终保存结果、
+固件 `ffa09fb` 已通过 ESP-IDF 5.5.2 CI 完整构建，网页也已在 HTTPS Pages 加载验证。
+仍需实机验收：BLE host/controller 的真实行为、设备屏幕最终保存结果、
 默认 cleanup delay 是否足够，以及失败重置/硬超时/重复进入管理的硬件验收。
 
 另外发现 v5.5.2 `handlers.c` 的 password 采用 `strlcpy(..., sizeof(sta.password))`，
@@ -202,7 +202,8 @@ Security1 首包约 41 字节、最大本页面凭据包约 105 字节，不能�
 - Disconnected/IDLE 与 ConnectionFailed 均归类为可重试终态，而非一直轮询。
 - BLE mock 用任意 UUID 证明按 0x2901 名称映射；写后读；缺描述符失败；写失败不重试。
 
-**尚未验证**：真实 BLE/GATT/MTU、浏览器 UI、ESP-IDF 编译、路由器连接、PoP 屏幕展示、NVS 迁移及退出功耗。
+**已验证**：13 项协议/传输模拟单测、浏览器能力检测和取消流程、局域网管理 UI 模拟、HTTPS 页面加载、ESP-IDF 5.5.2 编译。
+**尚未验证**：真实 BLE/GATT/MTU、完整浏览器配网交互、路由器连接、PoP 屏幕展示、NVS 迁移及退出功耗。
 验收前需至少：
 
 1. 编译并烧录本项目 BLE 固件，在 Android Chrome 和至少一种桌面 Chrome/Edge 上完整配网。
