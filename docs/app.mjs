@@ -42,10 +42,10 @@ async function operation(task) {
 }
 $('connect').addEventListener('click', async () => {
   if (!compatible || busy || transport) return;
-  let uuid, pop = $('pop').value;
+  let uuid, pop = $('pop').value.trim();
   try {
     uuid = serviceUUID($('service').value);
-    if (!pop || new TextEncoder().encode(pop).length > 256) throw new Error('请填写设备显示的 PoP（最多 256 字节）');
+    if (!/^[0-9]{6}$/.test(pop)) throw new Error('请输入屏幕上的 6 位数字校验码（保留开头的 0）');
   } catch (error) { show(errorMessage(error)); return; }
   const mine = ++epoch;
   busy = true; $('pop').value = ''; controls(); show('请在浏览器弹窗中明确选择你的设备…');

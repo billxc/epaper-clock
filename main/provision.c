@@ -113,9 +113,10 @@ bool provision_run(void)
     };
     bool prepared = false, manager = false, saved = false;
     uint8_t *frame = NULL;
-    char pop[17] = {0};
+    char pop[7] = {0};
     char service_name[sizeof("PROV_EPAPER_") + 6] = {0};
-    uint8_t random[8] = {0}, mac[6];
+    uint32_t random = 0;
+    uint8_t mac[6];
     esp_err_t err;
 
     /* IDF manager prints SSIDs/partially masked passwords at DEBUG; Security1
@@ -133,14 +134,10 @@ bool provision_run(void)
     /* Must precede Wi-Fi/BT initialization. With radios off, esp_fill_random()
      * alone does not guarantee fresh physical entropy. No concurrent ADC use. */
     bootloader_random_enable();
-    esp_fill_random(random, sizeof(random));
+    esp_fill_random(&random, sizeof(random));
     bootloader_random_disable();
-    static const char hex[] = "0123456789abcdef";
-    for (unsigned i = 0; i < sizeof(random); ++i) {
-        pop[2 * i] = hex[random[i] >> 4];
-        pop[2 * i + 1] = hex[random[i] & 15];
-    }
-    erase_secret(random, sizeof(random));
+    snprintf(pop, sizeof(pop), "%06u", (unsigned)(random % 1000000));
+    erase_secret(&random, sizeof(random));
 
     prepared = true; // Also finish a partially failed preparation.
     err = network_prepare_provisioning();
@@ -243,7 +240,7 @@ done:
         free(frame);
     }
     erase_secret(pop, sizeof(pop));
-    erase_secret(random, sizeof(random));
+    erase_secret(&random, sizeof(random));
     erase_secret(&s.candidate, sizeof(s.candidate));
     erase_secret(&s.verified, sizeof(s.verified));
     return saved;

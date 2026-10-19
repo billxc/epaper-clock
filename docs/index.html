@@ -12,7 +12,7 @@
 <body>
 <main>
   <h1>墨水屏时钟 · 蓝牙配网</h1>
-  <p class="notice"><strong>待实机联调：</strong>请使用本项目配套的 BLE 配网固件（旧版 AP/HTTP 固件不支持）。设备名为 PROV_EPAPER_ 加 6 位标识，屏幕显示 16 位十六进制 PoP。网页不会开启热点，也不会让手机切换 Wi-Fi。</p>
+  <p class="notice"><strong>待实机联调：</strong>请使用本项目配套的 BLE 配网固件（旧版 AP/HTTP 固件不支持）。设备名为 PROV_EPAPER_ 加 6 位标识，屏幕显示 6 位数字校验码。网页不会开启热点，也不会让手机切换 Wi-Fi。</p>
   <section aria-labelledby="requirements">
     <h2 id="requirements">开始之前</h2>
     <ul>
@@ -29,8 +29,8 @@
     <h2>1. 选择设备并验证</h2>
     <label for="service">BLE 服务 UUID（默认 ESP-IDF；自定义固件请核对）</label>
     <input id="service" value="1775244d-6b43-439b-877c-060f2d9bed07" spellcheck="false" autocomplete="off">
-    <label for="pop">设备 PoP 验证码（必填，不是 Wi-Fi 密码）</label>
-    <input id="pop" type="password" autocomplete="off" spellcheck="false" maxlength="256">
+    <label for="pop">屏幕上的 6 位数字校验码（不是 Wi-Fi 密码）</label>
+    <input id="pop" type="text" inputmode="numeric" pattern="[0-9]{6}" autocomplete="off" spellcheck="false" maxlength="6" placeholder="例如 042731">
     <div class="actions"><button id="connect" type="button" disabled>选择蓝牙设备并验证</button><button id="disconnect" type="button" disabled>断开并清空</button></div>
     <p>仅接受 Security1 + PoP；不会尝试 Security0 或无 PoP 降级。每次都由你在浏览器弹窗中选择设备。</p>
   </section>
