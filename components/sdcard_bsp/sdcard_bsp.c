@@ -2,6 +2,7 @@
 #include "sdcard_bsp.h"
 #include "esp_vfs_fat.h"
 #include "sdmmc_cmd.h"
+#include "driver/sdmmc_host.h"
 #include <stdio.h>
 
 #define CACHE_PATH "/sdcard/epaper-clock-v1.bin"
