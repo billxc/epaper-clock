@@ -163,7 +163,7 @@ Security1 首包约 41 字节、最大本页面凭据包约 105 字节，不能�
    而是在退出时停止并 deinit controller/host。此策略仍需以实机电流和第二次进入管理确认。
 7. 不记录 PoP/密钥/凭据 DEBUG 日志；PoP 不放 URL 或仓库。NVS 未加密仍有物理读取风险。
 
-固件 `ffa09fb` 已通过 ESP-IDF 5.5.2 CI 完整构建，网页也已在 HTTPS Pages 加载验证。
+固件 `d4cefd5` 已通过 ESP-IDF 5.5.2 CI 完整构建，网页也已在 HTTPS Pages 加载验证。
 仍需实机验收：BLE host/controller 的真实行为、设备屏幕最终保存结果、
 默认 cleanup delay 是否足够，以及失败重置/硬超时/重复进入管理的硬件验收。
 
