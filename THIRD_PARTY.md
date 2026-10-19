@@ -1,25 +1,46 @@
-# Upstream sources
+# Third-party sources and hardware references
 
-## Waveshare board example
+## Licensed e-paper controller reference
 
-- Repository: https://github.com/waveshareteam/ESP32-S3-ePaper-3.97
-- Revision: `9b12d40731a80213b927ee8a421cae4082952819`
-- Source directory: `ESP-IDF/08_ESP32-S3_e-Paper-3.97/`
-- Documentation: https://docs.waveshare.net/ESP32-S3-ePaper-3.97
+The public ESP-IDF display port is based on Waveshare's explicitly licensed
+3.97-inch controller implementation:
 
-`components/axpPower`, `components/epaper_port`, and `components/shtc3_bsp`
-are reduced/adapted from that example. The I2C/SDMMC pin assignments, RTC
-register mapping and power configuration also originate there. The application,
-small bitmap renderer, USB time tool and documentation are new project code.
+- Repository: https://github.com/waveshareteam/e-Paper
+- Revision: `a794fbc39656b0f93938d1ffb3fdc77eaed9e9fc`
+- File: `E-paper_Separate_Program/3in97_e-Paper/Arduino_R4/EPD_3in97.cpp`
+- License: permissive MIT-style grant in the source header.
 
-The inspected upstream root has no repository-wide license file. This private
-project does not assert a blanket MIT license or relicense the Waveshare code.
-Keep existing notices; clarify redistribution rights before making it public.
+`components/epaper_port/epaper_port.c` retains the Waveshare team attribution,
+permission notice and disclaimer. Its ESP-IDF SPI/GPIO transport and board
+power control are project code. The earlier private prototype's unlicensed
+board-specific display implementation is not included in this public history.
 
 ## XPowersLib
 
-The vendored `components/axpPower/src/` files retain their upstream MIT license
-and copyright notices (Lewis He / lewis he; see each file). They are included
-as shipped with the Waveshare snapshot, not fetched from an unpinned release.
+`components/axpPower/src/` is vendored from the board example snapshot below.
+These files carry their own MIT license and copyright notices (Lewis He /
+lewis he), which are retained unchanged. `axp_prot.cpp` is the project board
+wrapper around these APIs; its voltage and charging values are hardware data.
 
-ESP-IDF is a separate build dependency, not vendored in this repository.
+## Hardware references
+
+- Board: https://docs.waveshare.net/ESP32-S3-ePaper-3.97
+- Board example reference: https://github.com/waveshareteam/ESP32-S3-ePaper-3.97
+  at `9b12d40731a80213b927ee8a421cae4082952819`.
+- SHTC3 commands, timing, CRC and conversion formulas:
+  https://sensirion.com/products/catalog/SHTC3
+- PCF85063 register map: NXP PCF85063A datasheet.
+
+Pin assignments, peripheral addresses and register values are hardware facts.
+The public application, SHTC3 driver, RTC scheduling, I2C/SD glue, renderer and
+web UI are project code. No repository-wide license is assumed for the board
+example; it is cited as a hardware reference, not relicensed wholesale.
+
+## ESP-IDF provisioning protocol
+
+ESP-IDF v5.5.2 is a separate build dependency (Apache-2.0), not vendored here.
+BLE uses its `wifi_provisioning` / `protocomm` Security1 implementation.
+The Pages client implements the public protobuf wire protocol and Security1
+handshake; any additional source attribution is recorded alongside that client.
+
+Project code is MIT licensed; third-party notices take precedence for their files.

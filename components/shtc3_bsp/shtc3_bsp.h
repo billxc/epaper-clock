@@ -10,9 +10,8 @@ void i2c_shtc3_init(void);
 
 /**
  * Wake, measure and sleep. Call from task context, not concurrently.
- * Outputs: Celsius (upstream -1.5 C board correction), relative humidity (%).
- * Returns 0 on success, -1 for null arguments, 1 for I2C failure,
- * or 2 for CRC mismatch. Outputs remain unchanged on failure.
+ * Outputs: uncalibrated Celsius and relative humidity (%).
+ * Returns ESP_OK or an ESP-IDF error code; outputs remain unchanged on failure.
  */
 int SHTC3_GetEnvTemperatureHumidity(float *temperature, float *humidity);
 

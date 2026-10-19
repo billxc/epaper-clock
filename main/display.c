@@ -29,6 +29,7 @@ static const struct { char character; uint8_t rows[7]; } glyphs[] = {
     {'i',{4,0,12,4,4,4,14}}, {'m',{0,0,26,21,21,21,21}},
     {'n',{0,0,30,17,17,17,17}}, {'p',{0,0,30,17,30,16,16}},
     {'r',{0,0,22,25,16,16,16}}, {'/',{1,2,2,4,8,8,16}},
+    {'K',{17,18,20,24,20,18,17}}, {'_',{0,0,0,0,0,0,31}},
 };
 
 static void text(uint8_t *frame, int x, int y, int scale, const char *value)
@@ -48,19 +49,31 @@ static void text(uint8_t *frame, int x, int y, int scale, const char *value)
     }
 }
 
-void management_render(uint8_t *frame, const char *ssid, const char *password, const char *ip)
+void management_render(uint8_t *frame, const char *password, const char *ip)
 {
     memset(frame, 0xff, CLOCK_FRAME_SIZE);
-    text(frame, 48, 36, 5, "WIFI SETUP");
-    text(frame, 48, 112, 3, "WIFI:");
-    text(frame, 174, 112, 3, ssid);
-    text(frame, 48, 174, 3, "PASS:");
-    text(frame, 174, 174, 3, password);
-    text(frame, 48, 236, 3, "HTTP:");
-    text(frame, 174, 236, 3, ip);
-    text(frame, 48, 298, 3, "USER: admin");
-    text(frame, 48, 350, 3, "WEB PASS: SAME AS WIFI");
+    text(frame, 48, 36, 5, "LAN HTTP");
+    text(frame, 48, 120, 3, "HTTP:");
+    text(frame, 174, 120, 3, ip);
+    text(frame, 48, 190, 3, "USER: admin");
+    text(frame, 48, 260, 3, "PASS:");
+    text(frame, 174, 260, 3, password);
+    text(frame, 48, 350, 3, "WIFI: ROUTER NETWORK");
     text(frame, 48, 412, 2, "IDLE 5 MIN / MAX 15 MIN");
+}
+
+void provision_render(uint8_t *frame, const char *service_name, const char *pop)
+{
+    memset(frame, 0xff, CLOCK_FRAME_SIZE);
+    text(frame, 48, 36, 5, "BLE SETUP");
+    text(frame, 48, 112, 3, "NAME:");
+    text(frame, 174, 112, 3, service_name);
+    text(frame, 48, 180, 3, "CODE:");
+    text(frame, 174, 180, 3, pop);
+    text(frame, 48, 260, 3, "OPEN PAGES ON PHONE");
+    text(frame, 48, 310, 3, "CLICK CONNECT / ENTER CODE");
+    text(frame, 48, 360, 3, "NO WIFI HOTSPOT");
+    text(frame, 48, 420, 2, "5 MIN TIMEOUT");
 }
 
 void clock_render(uint8_t *frame, const struct tm *time, bool valid_time,
@@ -73,7 +86,7 @@ void clock_render(uint8_t *frame, const struct tm *time, bool valid_time,
         text(frame, 70, 45, 4, value);
         strftime(value, sizeof(value), "%H:%M", time);
     } else {
-        text(frame, 70, 45, 3, "SET TIME WIFI/USB");
+        text(frame, 70, 45, 3, "SET TIME BLE/USB");
         strcpy(value, "--:--");
     }
     text(frame, 70, 130, 22, value);

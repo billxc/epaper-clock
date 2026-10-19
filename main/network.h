@@ -9,10 +9,9 @@ typedef struct {
 } clock_wifi_config_t;
 
 typedef struct {
-    char ssid[33];
-    char password[17];
+    char password[17]; // Ephemeral HTTP password, never the router password.
     char ip[16];
-} clock_ap_info_t;
+} clock_management_info_t;
 
 // Call once after NVS initialization. Wi-Fi stays off until requested.
 void network_init(void);
@@ -23,7 +22,10 @@ esp_err_t network_save_config(const clock_wifi_config_t *config);
 bool network_daily_sync(void);
 // User-requested synchronization; bypasses the daily schedule.
 esp_err_t network_sync_now(void);
-esp_err_t network_start_management(clock_ap_info_t *info);
+esp_err_t network_start_management(clock_management_info_t *info);
+// Provisioning manager owns Wi-Fi start/connect between these calls (STA only).
+esp_err_t network_prepare_provisioning(void);
+void network_finish_provisioning(void);
 void network_stop(void);
 bool network_connected(void);
 void network_station_ip(char *ip, unsigned size);

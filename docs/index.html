@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'none'; img-src 'none'; font-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
+  <title>墨水屏时钟 · 蓝牙配网</title>
+  <link rel="stylesheet" href="./style.css">
+  <script type="module" src="./app.mjs"></script>
+</head>
+<body>
+<main>
+  <h1>墨水屏时钟 · 蓝牙配网</h1>
+  <p class="notice"><strong>待实机联调：</strong>请使用本项目配套的 BLE 配网固件（旧版 AP/HTTP 固件不支持）。设备名为 PROV_EPAPER_ 加 6 位标识，屏幕显示 16 位十六进制 PoP。网页不会开启热点，也不会让手机切换 Wi-Fi。</p>
+  <section aria-labelledby="requirements">
+    <h2 id="requirements">开始之前</h2>
+    <ul>
+      <li>在设备上主动开启<strong>短时 BLE 管理模式</strong>，将设备放在附近，准备屏幕上显示的 PoP 验证码。</li>
+      <li>使用 <strong>Android 的 Chrome / Edge</strong>，或带蓝牙的桌面 Chrome / Edge。桌面系统/蓝牙驱动可能另有限制，Linux 不保证可用。</li>
+      <li><strong>iPhone / iPad 的普通浏览器不支持</strong>此 Web Bluetooth 流程；Safari、Firefox 通常也不支持。</li>
+      <li>部署需 <strong>HTTPS（例如 GitHub Pages）</strong>；localhost 仅用于开发。系统蓝牙须开启，并允许浏览器访问附近设备。</li>
+      <li>设备连接的是你自己的 <strong>2.4 GHz 局域网</strong>，不是手机当前 Wi-Fi 的自动读取结果。</li>
+    </ul>
+    <p id="compatibility" role="status">正在实际检测 Web Bluetooth、X25519、SHA-256 和 AES-CTR…</p>
+    <noscript>需要启用 JavaScript。未启用时不能配网。</noscript>
+  </section>
+  <section>
+    <h2>1. 选择设备并验证</h2>
+    <label for="service">BLE 服务 UUID（默认 ESP-IDF；自定义固件请核对）</label>
+    <input id="service" value="1775244d-6b43-439b-877c-060f2d9bed07" spellcheck="false" autocomplete="off">
+    <label for="pop">设备 PoP 验证码（必填，不是 Wi-Fi 密码）</label>
+    <input id="pop" type="password" autocomplete="off" spellcheck="false" maxlength="256">
+    <div class="actions"><button id="connect" type="button" disabled>选择蓝牙设备并验证</button><button id="disconnect" type="button" disabled>断开并清空</button></div>
+    <p>仅接受 Security1 + PoP；不会尝试 Security0 或无 PoP 降级。每次都由你在浏览器弹窗中选择设备。</p>
+  </section>
+  <section>
+    <h2>2. 输入局域网 Wi-Fi</h2>
+    <form id="wifi" autocomplete="off">
+      <fieldset id="wifi-fields" disabled>
+        <button id="scan" type="button">让设备扫描附近 Wi-Fi（可选）</button>
+        <label for="networks">扫描结果（最多 30 项；也可直接输入隐藏网络）</label>
+        <select id="networks"><option value="">尚未扫描</option></select>
+        <label for="ssid">SSID / Wi-Fi 名称（区分大小写，最多 32 字节）</label>
+        <input id="ssid" required autocomplete="off" spellcheck="false">
+        <label for="password">Wi-Fi 密码（8–63 位 ASCII；个人 WPA/WPA2/WPA3，开放网络留空）</label>
+        <input id="password" type="password" autocomplete="off" spellcheck="false" maxlength="63">
+        <label class="check"><input id="open-network" type="checkbox"> 我确认目标为无密码的开放网络（不推荐）</label>
+        <button type="submit">通过加密 BLE 提交并查询连接状态</button>
+      </fieldset>
+    </form>
+    <p>不支持 WEP / 企业认证。不会读取手机保存的 Wi-Fi 密码。提交后最多查询 90 秒；设备报告已连接才显示 LAN IP（配置是否保存完成请以设备屏幕为准）。失败或空闲会停止查询，允许你重新输入并提交。</p>
+  </section>
+  <section><h2>状态</h2><p id="status" role="status" aria-live="polite">尚未连接设备。</p></section>
+  <footer>
+    <p>凭据仅经 BLE 发给所选设备，不上传 GitHub、不写入 localStorage，不含分析/广告或远端脚本。GitHub Pages 仍会接收普通网页访问请求。关闭或断开页面会清空输入；JavaScript 内存不保证可安全擦除。请只在可信设备与可信页面上输入凭据。</p>
+    <p>网页断开不等于设备已关闭蓝牙：配套固件必须在成功/取消/超时后结束管理模式，日常不常驻蓝牙。详见 <a href="./README.md">协议、固件接口与验收说明</a>。</p>
+  </footer>
+</main>
+</body>
+</html>

@@ -1,5 +1,4 @@
 #pragma once
-#include <stdbool.h>
-// Blocks until exit/timeout; leaves Wi-Fi stopped and handlers finished.
-// Returns true only when Wi-Fi configuration changed and needs applying.
-bool admin_run(void);
+// Joins the configured LAN; returns on connection failure, exit or timeout.
+// Leaves Wi-Fi stopped and HTTP handlers finished. Credentials are set via BLE only.
+void admin_run(void);

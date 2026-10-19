@@ -11,6 +11,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_http_server.h"
+#include "esp_log.h"
 #include "esp_timer.h"
 #include "mbedtls/base64.h"
 #include "cJSON.h"
@@ -21,7 +22,7 @@ extern const char html_end[] asm("_binary_admin_html_end");
 typedef struct {
     char auth[64];
     atomic_uint activity;
-    atomic_bool exiting, changed;
+    atomic_bool exiting;
 } session_t;
 static unsigned seconds(void) { return (unsigned)(esp_timer_get_time() / 1000000); }
 static session_t *session(httpd_req_t *r) { return httpd_get_global_user_ctx(r->handle); }
@@ -83,22 +84,6 @@ static cJSON *body_json(httpd_req_t *r)
     if (!cJSON_IsObject(json)) { cJSON_Delete(json); return NULL; }
     return json;
 }
-static bool wifi_config(cJSON *json, clock_wifi_config_t *config)
-{
-    cJSON *ssid = cJSON_GetObjectItemCaseSensitive(json, "ssid");
-    cJSON *pass = cJSON_GetObjectItemCaseSensitive(json, "password");
-    if (cJSON_GetArraySize(json) != 2 || !cJSON_IsString(ssid) || !cJSON_IsString(pass)) return false;
-    size_t s = strlen(ssid->valuestring), p = strlen(pass->valuestring);
-    if (s < 1 || s > 32 || (p != 0 && (p < 8 || p > 64))) return false;
-    for (size_t i = 0; i < p; ++i) {
-        unsigned char c = pass->valuestring[i];
-        if (p == 64 ? !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') ||
-                       (c >= 'A' && c <= 'F')) : (c < 32 || c > 126)) return false;
-    }
-    memcpy(config->ssid, ssid->valuestring, s + 1);
-    memcpy(config->password, pass->valuestring, p + 1);
-    return true;
-}
 static esp_err_t status_json(httpd_req_t *r)
 {
     struct tm now = {0};
@@ -141,28 +126,24 @@ static esp_err_t handle(httpd_req_t *r)
         return httpd_resp_send(r, html_start, html_end - html_start - 1);
     }
     if (r->method == HTTP_GET && !strcmp(r->uri, "/api/status")) return status_json(r);
-    bool config_route = !strcmp(r->uri, "/api/config");
     bool sync_route = !strcmp(r->uri, "/api/sync");
     bool exit_route = !strcmp(r->uri, "/api/exit");
-    if (r->method != HTTP_POST || !(config_route || sync_route || exit_route))
+    if (r->method != HTTP_POST || !(sync_route || exit_route))
         return unknown(r, HTTPD_404_NOT_FOUND);
     cJSON *json = body_json(r);
-    clock_wifi_config_t config = {0};
-    bool valid = json && (config_route ? wifi_config(json, &config) : cJSON_GetArraySize(json) == 0);
+    bool valid = json && cJSON_GetArraySize(json) == 0;
     cJSON_Delete(json);
     if (!valid) {
         httpd_resp_set_hdr(r, "Connection", "close");
-        reply(r, "400 Bad Request", "{\"error\":\"invalid JSON, content type, body size or Wi-Fi credentials\"}");
+        reply(r, "400 Bad Request", "{\"error\":\"expected empty JSON object with valid content type and body size\"}");
         return ESP_FAIL;
     }
     atomic_store(&s->activity, seconds());
-    esp_err_t result = config_route ? network_save_config(&config) :
-                       sync_route ? network_sync_now() : ESP_OK;
+    esp_err_t result = sync_route ? network_sync_now() : ESP_OK;
     if (result != ESP_OK)
         return reply(r, "500 Internal Server Error", "{\"ok\":false,\"error\":\"operation failed\"}");
-    if (config_route) atomic_store(&s->changed, true);
     esp_err_t sent = reply(r, "200 OK", "{\"ok\":true}");
-    if (!sync_route) {
+    if (exit_route) {
         // Give the TCP response time to reach the client before stopping Wi-Fi.
         vTaskDelay(pdMS_TO_TICKS(500));
         atomic_store(&s->exiting, true);
@@ -170,21 +151,23 @@ static esp_err_t handle(httpd_req_t *r)
     return sent;
 }
 
-bool admin_run(void)
+void admin_run(void)
 {
-    clock_ap_info_t info = {0};
+    clock_management_info_t info = {0};
     httpd_handle_t server = NULL;
     uint8_t *frame = NULL;
     unsigned started = seconds();
     session_t s = {0};
     atomic_init(&s.activity, seconds());
     atomic_init(&s.exiting, false);
-    atomic_init(&s.changed, false);
-    if (network_start_management(&info) != ESP_OK) goto done;
+    if (network_start_management(&info) != ESP_OK) {
+        ESP_LOGW("admin", "LAN connection failed; management unavailable");
+        goto done;
+    }
     frame = malloc(CLOCK_FRAME_SIZE);
     if (!frame) goto done;
     EPD_Init();
-    management_render(frame, info.ssid, info.password, info.ip);
+    management_render(frame, info.password, info.ip);
     EPD_Display_Base(frame);
     EPD_Sleep();
     char credentials[32];
@@ -222,5 +205,4 @@ bool admin_run(void)
     if (server) httpd_stop(server); // Joins the HTTP task before context/frame cleanup.
     network_stop();
     free(frame);
-    return atomic_load(&s.changed);
 }

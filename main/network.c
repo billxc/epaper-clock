@@ -10,7 +10,6 @@
 #include "freertos/event_groups.h"
 #include "esp_event.h"
 #include "esp_log.h"
-#include "esp_mac.h"
 #include "esp_netif.h"
 #include "esp_netif_sntp.h"
 #include "esp_random.h"
@@ -21,7 +20,6 @@
 #define CONNECTED BIT0
 #define CONNECT_FAILED BIT1
 #define STA_STOPPED BIT2
-#define AP_STOPPED BIT3
 #define STA_WAIT pdMS_TO_TICKS(15000)
 #define NTP_WAIT pdMS_TO_TICKS(10000)
 
@@ -29,13 +27,12 @@ static const char *TAG = "clock_net";
 // NVS keys are limited to 15 characters; "last_attempt_day" is too long.
 static const char *ATTEMPT_KEY = "last_attempt";
 static clock_wifi_config_t saved;
-static clock_ap_info_t ap_info;
 static int32_t last_attempt_day;
 static int64_t last_sync_epoch;
 static EventGroupHandle_t events;
-static esp_netif_t *sta_netif, *ap_netif;
+static esp_netif_t *sta_netif;
 static esp_event_handler_instance_t wifi_handler, ip_handler;
-static bool driver_initialized, wifi_running, management, sta_enabled;
+static bool driver_initialized, wifi_running;
 
 // Public operations are serialized by the caller. Only event bits are shared
 // with the IDF event task; it never reads or modifies the configuration/state.
@@ -55,12 +52,10 @@ static void on_event(void *arg, esp_event_base_t base, int32_t id, void *data)
         if (id == WIFI_EVENT_STA_DISCONNECTED) {
             xEventGroupClearBits(events, CONNECTED);
             xEventGroupSetBits(events, CONNECT_FAILED);
-            // Deliberately no reconnect here, including during management.
+            // Deliberately no reconnect loop here.
         } else if (id == WIFI_EVENT_STA_STOP) {
             xEventGroupClearBits(events, CONNECTED);
             xEventGroupSetBits(events, STA_STOPPED);
-        } else if (id == WIFI_EVENT_AP_STOP) {
-            xEventGroupSetBits(events, AP_STOPPED);
         }
     }
 }
@@ -130,7 +125,6 @@ void network_init(void)
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     // Netifs and event handlers live for this boot; only the radio is cycled.
     sta_netif = esp_netif_create_default_wifi_sta();
-    ap_netif = esp_netif_create_default_wifi_ap(); // DHCP at 192.168.4.1/24.
     ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID,
                                                        on_event, NULL, &wifi_handler));
     ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT, ESP_EVENT_ANY_ID,
@@ -158,7 +152,7 @@ esp_err_t network_save_config(const clock_wifi_config_t *config)
         saved = *config;
         last_attempt_day = 0;
     }
-    // Do not change a live STA/AP: management exits before using new settings.
+    // Do not change a live station: management exits before using new settings.
     return err;
 }
 
@@ -188,13 +182,10 @@ static esp_err_t start_station(void)
 {
     esp_err_t err = prepare_driver();
     if (err != ESP_OK) return err;
-    err = esp_wifi_set_mode(management ? WIFI_MODE_APSTA : WIFI_MODE_STA);
-    if (err == ESP_OK) {
-        err = configure_station();
-        if (err == ESP_OK) sta_enabled = true;
-    }
+    err = esp_wifi_set_mode(WIFI_MODE_STA);
+    if (err == ESP_OK) err = configure_station();
     if (err == ESP_OK && !wifi_running) {
-        xEventGroupClearBits(events, CONNECTED | CONNECT_FAILED | STA_STOPPED | AP_STOPPED);
+        xEventGroupClearBits(events, CONNECTED | CONNECT_FAILED | STA_STOPPED);
         err = esp_wifi_start();
         if (err == ESP_OK) wifi_running = true;
     }
@@ -210,7 +201,7 @@ static esp_err_t connect_station(void)
     EventBits_t bits = xEventGroupWaitBits(events, CONNECTED | CONNECT_FAILED,
                                          pdFALSE, pdFALSE, STA_WAIT);
     if ((bits & CONNECTED) && !(bits & CONNECT_FAILED)) return ESP_OK;
-    // Cancel a slow association/DHCP too. Disconnecting STA does not stop AP.
+    // Cancel a slow association/DHCP too.
     esp_wifi_disconnect();
     xEventGroupClearBits(events, CONNECTED);
     return bits & CONNECT_FAILED ? ESP_FAIL : ESP_ERR_TIMEOUT;
@@ -235,7 +226,7 @@ esp_err_t network_sync_now(void)
 {
     if (!saved.ssid[0]) return ESP_ERR_INVALID_STATE;
     esp_err_t err = ESP_OK;
-    if (!sta_enabled || !wifi_running) err = start_station();
+    if (!wifi_running) err = start_station();
     if (err == ESP_OK) err = connect_station();
     if (err == ESP_OK) {
         esp_sntp_config_t config = ESP_NETIF_SNTP_DEFAULT_CONFIG(CONFIG_CLOCK_NTP_SERVER);
@@ -264,8 +255,7 @@ esp_err_t network_sync_now(void)
             // RTC really changed even if NVS failed: callers must full-refresh.
         }
     }
-    // The caller owns radio lifetime. In particular, an HTTP sync must leave
-    // the management AP running; main explicitly stops after a manual sync.
+    // The caller owns radio lifetime; HTTP sync keeps its LAN connection.
     return err;
 }
 
@@ -291,89 +281,56 @@ bool network_daily_sync(void)
     return err == ESP_OK;
 }
 
-esp_err_t network_start_management(clock_ap_info_t *info)
+esp_err_t network_start_management(clock_management_info_t *info)
 {
-    if (!info) return ESP_ERR_INVALID_ARG;
-    if (management) {
-        *info = ap_info;
-        return ESP_OK;
+    if (!saved.ssid[0]) return ESP_ERR_INVALID_STATE;
+    esp_err_t err = network_connected() ? ESP_OK : start_station();
+    if (err == ESP_OK) err = connect_station();
+    if (err != ESP_OK) {
+        network_stop();
+        return err;
     }
-    network_stop();
-    if (wifi_running) return ESP_ERR_INVALID_STATE;
-    esp_err_t err = prepare_driver();
-    if (err != ESP_OK) return err;
-    uint8_t mac[6];
-    err = esp_read_mac(mac, ESP_MAC_WIFI_SOFTAP);
-    if (err != ESP_OK) goto failed;
-    // Full MAC avoids suffix collisions; password is fresh for every session.
-    snprintf(ap_info.ssid, sizeof(ap_info.ssid), "EPaper-%02X%02X%02X%02X%02X%02X",
-             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    network_station_ip(info->ip, sizeof(info->ip));
+    // RF is active here, providing hardware entropy for the session password.
     uint8_t random[8];
     esp_fill_random(random, sizeof(random));
     static const char hex[] = "0123456789abcdef";
     for (unsigned i = 0; i < sizeof(random); ++i) {
-        ap_info.password[2 * i] = hex[random[i] >> 4];
-        ap_info.password[2 * i + 1] = hex[random[i] & 15];
+        info->password[2 * i] = hex[random[i] >> 4];
+        info->password[2 * i + 1] = hex[random[i] & 15];
     }
-    ap_info.password[16] = '\0';
-    snprintf(ap_info.ip, sizeof(ap_info.ip), "192.168.4.1");
-    wifi_config_t ap = {0};
-    memcpy(ap.ap.ssid, ap_info.ssid, strlen(ap_info.ssid));
-    ap.ap.ssid_len = strlen(ap_info.ssid);
-    memcpy(ap.ap.password, ap_info.password, strlen(ap_info.password));
-    ap.ap.authmode = WIFI_AUTH_WPA2_PSK;
-    ap.ap.channel = 1;
-    ap.ap.max_connection = 4;
-    sta_enabled = saved.ssid[0] != '\0';
-    err = esp_wifi_set_mode(sta_enabled ? WIFI_MODE_APSTA : WIFI_MODE_AP);
-    if (err == ESP_OK) err = esp_wifi_set_config(WIFI_IF_AP, &ap);
-    if (err == ESP_OK && sta_enabled) err = configure_station();
-    if (err != ESP_OK) goto failed;
-    xEventGroupClearBits(events, CONNECTED | CONNECT_FAILED | STA_STOPPED | AP_STOPPED);
-    err = esp_wifi_start();
-    if (err != ESP_OK) goto failed;
-    wifi_running = true;
-    management = true;
-    if (sta_enabled) {
-        // One bounded attempt only. Failure must not tear down the management AP.
-        esp_err_t station = connect_station();
-        if (station != ESP_OK)
-            ESP_LOGW(TAG, "Management STA: %s", esp_err_to_name(station));
-    }
-    *info = ap_info;
+    info->password[16] = '\0';
     return ESP_OK;
-failed:
+}
+
+esp_err_t network_prepare_provisioning(void)
+{
     network_stop();
+    esp_err_t err = prepare_driver();
+    if (err == ESP_OK) err = esp_wifi_set_mode(WIFI_MODE_STA);
     return err;
+}
+
+void network_finish_provisioning(void)
+{
+    // The provisioning manager may have started the driver independently.
+    // network_stop deliberately stops an initialized driver unconditionally.
+    network_stop();
 }
 
 void network_stop(void)
 {
-    if (driver_initialized) {
-        if (wifi_running) {
-            EventBits_t stopped = (sta_enabled ? STA_STOPPED : 0) |
-                                  (management ? AP_STOPPED : 0);
-            xEventGroupClearBits(events, STA_STOPPED | AP_STOPPED);
-            esp_err_t err = esp_wifi_stop();
-            if (err == ESP_OK) {
-                wifi_running = false;
-                if (stopped) {
-                    // Drain stop events before another session reuses the bits.
-                    xEventGroupWaitBits(events, stopped, pdFALSE, pdTRUE, pdMS_TO_TICKS(1000));
-                }
-            } else {
-                ESP_LOGW(TAG, "Stop Wi-Fi: %s", esp_err_to_name(err));
-            }
-        }
-        esp_err_t err = esp_wifi_deinit();
-        if (err != ESP_OK) ESP_LOGW(TAG, "Release Wi-Fi: %s", esp_err_to_name(err));
-        else driver_initialized = wifi_running = false;
-    }
-    if (!wifi_running) {
-        management = sta_enabled = false;
-        if (events) xEventGroupClearBits(events, CONNECTED | CONNECT_FAILED);
-        memset(&ap_info, 0, sizeof(ap_info));
-    } // Preserve live state on a driver error, so a repeated stop can retry.
+    if (!driver_initialized) return;
+    xEventGroupClearBits(events, STA_STOPPED);
+    esp_err_t stopped = esp_wifi_stop();
+    if (stopped == ESP_OK)
+        xEventGroupWaitBits(events, STA_STOPPED, pdFALSE, pdTRUE, pdMS_TO_TICKS(1000));
+    else if (stopped != ESP_ERR_WIFI_NOT_STARTED)
+        ESP_LOGW(TAG, "Stop Wi-Fi: %s", esp_err_to_name(stopped));
+    esp_err_t err = esp_wifi_deinit();
+    if (err != ESP_OK) ESP_LOGW(TAG, "Release Wi-Fi: %s", esp_err_to_name(err));
+    else driver_initialized = wifi_running = false;
+    xEventGroupClearBits(events, CONNECTED | CONNECT_FAILED);
 }
 
 int64_t network_last_sync(void)

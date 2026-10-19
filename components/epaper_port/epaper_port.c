@@ -1,353 +1,178 @@
-#include <assert.h>
-#include <string.h>
-#include "driver/spi_master.h"
+/*
+ * ESP-IDF full-frame port derived from Waveshare team's EPD_3in97.cpp:
+ * https://github.com/waveshareteam/e-Paper/blob/master/E-paper_Separate_Program/3in97_e-Paper/Arduino_R4/EPD_3in97.cpp
+ * Baseline: /tmp/epaper397-licensed-driver.cpp, SHA-256:
+ * c66943c810f9b0b421f28dd084ee24c66e9a7275a159e58160024d804f2fa898
+ * Board adaptation: SPI3/20MHz, ALDO3, fixed full-frame transfers, descending
+ * partial Y window, reset 50/2/50ms, busy 100ms + 20ms polling, power timing.
+ * Upstream permission notice (including its original spelling) follows.
+ * Author: Waveshare team
+ *
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documnetation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to  whom the Software is
+# furished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS OR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+ */
+#include "epaper_port.h"
+#include "axp_prot.h"
 #include "driver/gpio.h"
+#include "driver/spi_master.h"
 #include "esp_err.h"
-#include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "axp_prot.h"
 
-#include "epaper_port.h"
-
-#define epaper_rst_1    gpio_set_level(EPD_RST_PIN,1)
-#define epaper_rst_0    gpio_set_level(EPD_RST_PIN,0)
-#define epaper_cs_0     gpio_set_level(EPD_CS_PIN,0)
-#define epaper_dc_1     gpio_set_level(EPD_DC_PIN,1)
-#define epaper_dc_0     gpio_set_level(EPD_DC_PIN,0)
-#define ReadBusy       gpio_get_level(EPD_BUSY_PIN)
-
-static spi_device_handle_t spi;
-static const char *TAG = "EPD_DRIVER";
-
-static void epaper_gpio_Init(void)
-{
-  gpio_config_t gpio_conf = {};
-  gpio_conf.intr_type = GPIO_INTR_DISABLE;
-  gpio_conf.mode = GPIO_MODE_OUTPUT;
-  gpio_conf.pin_bit_mask = ((uint64_t)0x01<<EPD_RST_PIN) | ((uint64_t)0x01<<EPD_DC_PIN) | ((uint64_t)0x01<<EPD_CS_PIN);
-  gpio_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
-  gpio_conf.pull_up_en = GPIO_PULLUP_ENABLE;
-  ESP_ERROR_CHECK_WITHOUT_ABORT(gpio_config(&gpio_conf));
-
-
-  gpio_conf.intr_type = GPIO_INTR_DISABLE;
-  gpio_conf.mode = GPIO_MODE_INPUT;
-  gpio_conf.pin_bit_mask = ((uint64_t)0x01<<EPD_BUSY_PIN);
-  gpio_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
-  gpio_conf.pull_up_en = GPIO_PULLDOWN_ENABLE;
-  ESP_ERROR_CHECK_WITHOUT_ABORT(gpio_config(&gpio_conf));
-
-  epaper_rst_1;
-}
+static spi_device_handle_t panel_spi;
+#define DELAY_MS(ms) vTaskDelay(pdMS_TO_TICKS(ms))
+#define LE16(v) (uint8_t)((v) & 0xff), (uint8_t)(((v) >> 8) & 0xff)
+#define REG(cmd, ...) write_register(cmd, (const uint8_t[]){__VA_ARGS__}, \
+                                    sizeof((const uint8_t[]){__VA_ARGS__}))
 
 void epaper_port_init(void)
 {
-    esp_err_t ret;
-    spi_bus_config_t buscfg = 
-    {
-        .miso_io_num = -1,
-        .mosi_io_num = EPD_MOSI_PIN,
-        .sclk_io_num = EPD_SCLK_PIN,
-        .quadwp_io_num = -1,
-        .quadhd_io_num = -1,
-        .max_transfer_sz = 65536,  
+    const spi_bus_config_t bus = {
+        .mosi_io_num = EPD_MOSI_PIN, .miso_io_num = -1,
+        .sclk_io_num = EPD_SCLK_PIN, .quadwp_io_num = -1,
+        .quadhd_io_num = -1, .max_transfer_sz = 65536,
     };
-    spi_device_interface_config_t devcfg = 
-    {
-        .spics_io_num = -1,
-        .clock_speed_hz = 20 * 1000 * 1000, 
-        .mode = 0,
-        .queue_size = 1, 
+    const spi_device_interface_config_t device = {
+        .clock_speed_hz = 20000000, .mode = 0,
+        .spics_io_num = -1, .queue_size = 1,
     };
-    
-    ret = spi_bus_initialize(SPI3_HOST, &buscfg, SPI_DMA_CH_AUTO);
-    ESP_ERROR_CHECK(ret);
-    ret = spi_bus_add_device(SPI3_HOST, &devcfg, &spi);
-    ESP_ERROR_CHECK(ret);
-
-    epaper_gpio_Init();
+    ESP_ERROR_CHECK(spi_bus_initialize(SPI3_HOST, &bus, SPI_DMA_CH_AUTO));
+    ESP_ERROR_CHECK(spi_bus_add_device(SPI3_HOST, &device, &panel_spi));
+    gpio_config_t pins = {
+        .pin_bit_mask = (1ULL << EPD_CS_PIN) | (1ULL << EPD_DC_PIN) |
+                        (1ULL << EPD_RST_PIN),
+        .mode = GPIO_MODE_OUTPUT, .pull_up_en = GPIO_PULLUP_ENABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE, .intr_type = GPIO_INTR_DISABLE,
+    };
+    ESP_ERROR_CHECK(gpio_config(&pins));
+    pins.pin_bit_mask = 1ULL << EPD_BUSY_PIN;
+    pins.mode = GPIO_MODE_INPUT;
+    ESP_ERROR_CHECK(gpio_config(&pins));
+    gpio_set_level(EPD_CS_PIN, 0); /* Dedicated bus: keep CS asserted. */
+    gpio_set_level(EPD_DC_PIN, 0);
+    gpio_set_level(EPD_RST_PIN, 1);
 }
 
-static void spi_send_byte(uint8_t cmd)
+/* Bulk SPI replaces upstream byte writes and per-row delays. */
+static void transfer(int data, const uint8_t *bytes, size_t size)
 {
-    esp_err_t ret;
-    spi_transaction_t t; 
-    memset(&t, 0, sizeof(t)); 
-    
-    t.length = 8;      
-    t.tx_buffer = &cmd;
-    t.rx_buffer = NULL;  
-    t.rxlength = 0; 
-    
-    ret = spi_device_polling_transmit(spi, &t);
-    assert(ret == ESP_OK);
-}
-
-/******************************************************************************
-function :	Software reset
-parameter:
-******************************************************************************/
-static void EPD_Reset(void)
-{
-    epaper_rst_1;
-    vTaskDelay(pdMS_TO_TICKS(50));
-    epaper_rst_0;
-    vTaskDelay(pdMS_TO_TICKS(2));
-    epaper_rst_1;
-    vTaskDelay(pdMS_TO_TICKS(50));
-}
-
-/******************************************************************************
-function :	send command
-parameter:
-     Reg : Command register
-******************************************************************************/
-static void EPD_SendCommand(UBYTE Reg)
-{
-    epaper_dc_0;
-    spi_send_byte(Reg);
-}
-
-/******************************************************************************
-function :	send data
-parameter:
-    Data : Write data
-******************************************************************************/
-static void EPD_SendData(UBYTE Data)
-{
-    epaper_dc_1;
-    spi_send_byte(Data);
-}
-
-static void EPD_SendDataBuffer(const UBYTE* buffer, UDOUBLE length)
-{
-    epaper_dc_1; 
-    
-    esp_err_t ret;
-    const size_t chunk_size = 4096;
-    
-    for (size_t i = 0; i < length; i += chunk_size) {
-        size_t current_chunk = (i + chunk_size > length) ? (length - i) : chunk_size;
-        
-        spi_transaction_t t;
-        memset(&t, 0, sizeof(t));
-        
-        t.length = current_chunk * 8;
-        t.tx_buffer = buffer + i;
-        
-        ret = spi_device_polling_transmit(spi, &t);
-        if (ret != ESP_OK) {
-            ESP_LOGE(TAG, "SPI transmission failed: %s", esp_err_to_name(ret));
-            return;
-        }
+    gpio_set_level(EPD_DC_PIN, data);
+    while (size) {
+        size_t count = size > 4096 ? 4096 : size;
+        spi_transaction_t transaction = {.length = count * 8, .tx_buffer = bytes};
+        ESP_ERROR_CHECK(spi_device_polling_transmit(panel_spi, &transaction));
+        bytes += count;
+        size -= count;
     }
-    
-    ESP_LOGD(TAG, "All %lu bytes transmitted successfully", (unsigned long)length);
 }
 
-/******************************************************************************
-function :	Wait until the busy_pin goes LOW
-parameter:
-******************************************************************************/
-static void EPD_ReadBusy(void)
+static void command(uint8_t value)
 {
-    // ESP_LOGI(TAG,"e-Paper busy");
-    vTaskDelay(pdMS_TO_TICKS(100));
-    while(1)
-    {
-        if(!ReadBusy){break;}
-        // getstat();
-        vTaskDelay(pdMS_TO_TICKS(20));
+    transfer(0, &value, 1);
+}
+
+static void write_register(uint8_t address, const uint8_t *values, size_t size)
+{
+    command(address);
+    transfer(1, values, size);
+}
+
+static void reset(void)
+{
+    gpio_set_level(EPD_RST_PIN, 1);
+    DELAY_MS(50);
+    gpio_set_level(EPD_RST_PIN, 0);
+    DELAY_MS(2);
+    gpio_set_level(EPD_RST_PIN, 1);
+    DELAY_MS(50);
+}
+
+static void wait_idle(void)
+{
+    DELAY_MS(100);
+    while (gpio_get_level(EPD_BUSY_PIN)) {
+        DELAY_MS(20);
     }
-    // ESP_LOGI(TAG,"e-Paper busy release");
 }
 
-/******************************************************************************
-function :	Power on/off control for e-ink screens
-parameter:
-******************************************************************************/
-static void EPD_Power_ON(void)
+static void refresh(uint8_t mode)
 {
-    enapwrstate(ALDO3);
-    // disapwrstate(ALDO3);
+    REG(0x22, mode);
+    command(0x20);
+    wait_idle();
 }
 
-static void EPD_Power_OFF(void)
-{
-    // enapwrstate(ALDO3);
-    disapwrstate(ALDO3);
-}
-
-/******************************************************************************
-function :	Turn On Display full
-parameter:
-******************************************************************************/
-static void EPD_TurnOnDisplay(void)
-{
-    EPD_SendCommand(0x22);
-    EPD_SendData(0xF7);
-	EPD_SendCommand(0x20);
-    EPD_ReadBusy();
-}
-
-static void EPD_TurnOnDisplay_Part(void)
-{
-    EPD_SendCommand(0x22);
-    EPD_SendData(0xFF);
-    EPD_SendCommand(0x20);
-    EPD_ReadBusy();
-}
-
-/******************************************************************************
-function :	Initialize the e-Paper register
-parameter:
-******************************************************************************/
 void EPD_Init(void)
 {
-    EPD_Power_ON();
-    vTaskDelay(pdMS_TO_TICKS(10));
-    EPD_Reset();
-
-    EPD_ReadBusy();
-    EPD_SendCommand(0x12);  //SWRESET
-    EPD_ReadBusy();
-
-    EPD_SendCommand(0x18);
-    EPD_SendData(0x80);
-
-    EPD_SendCommand(0x0C);
-	EPD_SendData(0xAE);
-	EPD_SendData(0xC7);
-	EPD_SendData(0xC3);
-	EPD_SendData(0xC0);
-	EPD_SendData(0x80);
-
-    EPD_SendCommand(0x01); //Driver output control
-    EPD_SendData((EPD_HEIGHT-1)%256);
-    EPD_SendData((EPD_HEIGHT-1)/256);
-    EPD_SendData(0x02);
-
-    EPD_SendCommand(0x3C); //BorderWavefrom
-    EPD_SendData(0x01);
-
-    EPD_SendCommand(0x11); //data entry mode       
-	EPD_SendData(0x01);
-
-	EPD_SendCommand(0x44); //set Ram-X address start/end position   
-	EPD_SendData(0x00);
-	EPD_SendData(0x00);
-	EPD_SendData((EPD_WIDTH-1)%256);    
-	EPD_SendData((EPD_WIDTH-1)/256);
-
-	EPD_SendCommand(0x45); //set Ram-Y address start/end position    
-    EPD_SendData((EPD_HEIGHT-1)%256);    
-	EPD_SendData((EPD_HEIGHT-1)/256);  
-	EPD_SendData(0x00);
-	EPD_SendData(0x00);
-
-    EPD_SendCommand(0x4E);   // set RAM x address count to 0;
-	EPD_SendData(0x00);
-	EPD_SendData(0x00);
-	EPD_SendCommand(0x4F);   // set RAM y address count to 0X199;    
-	EPD_SendData(0x00);
-	EPD_SendData(0x00);
-    EPD_ReadBusy();
-
+    enapwrstate(ALDO3);
+    DELAY_MS(10);
+    reset();
+    wait_idle();
+    command(0x12);
+    wait_idle();
+    REG(0x18, 0x80);
+    REG(0x0C, 0xAE, 0xC7, 0xC3, 0xC0, 0x80);
+    REG(0x01, LE16(EPD_HEIGHT - 1), 0x02);
+    REG(0x3C, 0x01);
+    REG(0x11, 0x01);
+    REG(0x44, LE16(0), LE16(EPD_WIDTH - 1));
+    REG(0x45, LE16(EPD_HEIGHT - 1), LE16(0));
+    REG(0x4E, LE16(0));
+    REG(0x4F, LE16(0));
+    wait_idle();
 }
 
-/******************************************************************************
-function :	Sends the image buffer in RAM to e-Paper and displays
-parameter:
-******************************************************************************/
 void EPD_Display_Base(const UBYTE *Image)
 {
-    UWORD Width, Height;
-    Width = (EPD_WIDTH % 8 == 0)? (EPD_WIDTH / 8 ): (EPD_WIDTH / 8 + 1);
-    Height = EPD_HEIGHT;
-    UDOUBLE buffer_size = Width * Height;
-    
-    EPD_SendCommand(0x24);
-    EPD_SendDataBuffer(Image, buffer_size);
-
-    
-    
-    EPD_SendCommand(0x26);
-    EPD_SendDataBuffer(Image, buffer_size);
-    
-    EPD_TurnOnDisplay();
+    command(0x24);
+    transfer(1, Image, EPD_SIZE_MONO);
+    command(0x26);
+    transfer(1, Image, EPD_SIZE_MONO);
+    refresh(0xF7);
 }
 
-/******************************************************************************
-function :	Sends the image buffer in RAM to e-Paper and displays
-parameter:
-******************************************************************************/
-void EPD_Display_Partial(const UBYTE *Image, UWORD Xstart, UWORD Ystart, UWORD Xend, UWORD Yend)
+void EPD_Display_Partial(const UBYTE *Image, UWORD Xstart, UWORD Ystart,
+                         UWORD Xend, UWORD Yend)
 {
-    if((Xstart % 8 + Xend % 8 == 8 && Xstart % 8 > Xend % 8) || Xstart % 8 + Xend % 8 == 0 || (Xend - Xstart)%8 == 0)
-    {
-        Xstart = Xstart / 8 ;
-        Xend = Xend / 8;
-    }
-    else
-    {
-        Xstart = Xstart / 8 ;
-        Xend = Xend % 8 == 0 ? Xend / 8 : Xend / 8 + 1;
-    }
-
-    UWORD Width = Xend - Xstart;
-    UDOUBLE IMAGE_COUNTER = Width * (Yend - Ystart);
-
-    Xend -= 1;
-    Yend -= 1;	
-
-    EPD_Reset();
-
-    EPD_SendCommand(0x18);
-    EPD_SendData(0x80);
-
-    EPD_SendCommand(0x3C);
-    EPD_SendData(0x80);
-
-    EPD_SendCommand(0x44);
-    EPD_SendData((Xstart*8) & 0xFF);
-    EPD_SendData(((Xstart*8) >> 8) & 0xFF);
-    EPD_SendData((Xend*8) & 0xFF);
-    EPD_SendData(((Xend*8) >> 8) & 0xFF);
-
-    EPD_SendCommand(0x45);
-    EPD_SendData(Yend & 0xFF);
-    EPD_SendData((Yend >> 8) & 0xFF);
-    EPD_SendData(Ystart & 0xFF);
-    EPD_SendData((Ystart >> 8) & 0xFF);
-
-    EPD_SendCommand(0x4E); 
-    EPD_SendData((Xstart*8) & 0xFF);
-    EPD_SendData(((Xstart*8) >> 8) & 0xFF);
-
-    EPD_SendCommand(0x4F);
-    EPD_SendData(Ystart & 0xFF);
-    EPD_SendData((Ystart >> 8) & 0xFF);
-
-    EPD_SendCommand(0x24);   //Write Black and White image to RAM
-
-    EPD_SendDataBuffer(Image, IMAGE_COUNTER);
-
-    EPD_TurnOnDisplay_Part();
+    /* Legacy signature only; subwindows are outside this port's contract. */
+    ESP_ERROR_CHECK((Xstart == 0 && Ystart == 0 && Xend == EPD_WIDTH &&
+                     Yend == EPD_HEIGHT) ? ESP_OK : ESP_ERR_INVALID_ARG);
+    reset();
+    REG(0x18, 0x80);
+    REG(0x3C, 0x80);
+    /* Upstream encodes the last byte's first pixel: 792, not 799. */
+    REG(0x44, LE16(0), LE16(EPD_WIDTH - 8));
+    /* Board scan direction: reverse upstream partial Y endpoints. */
+    REG(0x45, LE16(EPD_HEIGHT - 1), LE16(0));
+    REG(0x4E, LE16(0));
+    REG(0x4F, LE16(0));
+    command(0x24);
+    transfer(1, Image, EPD_SIZE_MONO);
+    refresh(0xFF);
 }
 
-/******************************************************************************
-function :	Enter sleep mode
-parameter:
-******************************************************************************/
 void EPD_Sleep(void)
 {
-    EPD_SendCommand(0x10); //enter deep sleep
-    EPD_SendData(0x01);
-    vTaskDelay(pdMS_TO_TICKS(10));
-    epaper_rst_0;
-    epaper_cs_0;
-    epaper_dc_0;
-    EPD_Power_OFF();
-    vTaskDelay(pdMS_TO_TICKS(10));
+    REG(0x10, 0x01);
+    DELAY_MS(10);
+    gpio_set_level(EPD_RST_PIN, 0);
+    gpio_set_level(EPD_CS_PIN, 0);
+    gpio_set_level(EPD_DC_PIN, 0);
+    disapwrstate(ALDO3);
+    DELAY_MS(10);
 }

@@ -21,8 +21,10 @@
 #include "rtc.h"
 #include "network.h"
 #include "admin.h"
+#include "provision.h"
 
-#define MANAGEMENT_BUTTON GPIO_NUM_5 // Dial center, active low (Waveshare pinout).
+#define MANAGEMENT_BUTTON GPIO_NUM_5 // Dial center, active low.
+#define PROVISION_BUTTON GPIO_NUM_4  // Dial up: request BLE reprovisioning.
 
 static bool management_button_pressed(void)
 {
@@ -33,13 +35,25 @@ static bool management_button_pressed(void)
     return pressed;
 }
 
-static void run_management(void)
+static bool provision_button_pressed(void)
 {
-    if (admin_run()) {
+    static bool held;
+    bool down = gpio_get_level(PROVISION_BUTTON) == 0;
+    bool pressed = down && !held;
+    held = down;
+    return pressed;
+}
+
+static void run_management(bool reprovision)
+{
+    clock_wifi_config_t config;
+    network_get_config(&config);
+    if (reprovision || !config.ssid[0]) {
+        if (!provision_run()) return;
         esp_err_t result = network_sync_now();
-        ESP_LOGW("clock", "New Wi-Fi configuration sync: %s", esp_err_to_name(result));
-        network_stop();
+        ESP_LOGW("clock", "Provisioned Wi-Fi sync: %s", esp_err_to_name(result));
     }
+    admin_run();
 }
 
 // Only USB-powered starts wait for a host; battery starts never wait here.
@@ -89,15 +103,18 @@ void app_main(void)
     bool scheduled_start = rtc_alarm_pending();
     rtc_init();
     gpio_config_t button = {
-        .pin_bit_mask = 1ULL << MANAGEMENT_BUTTON, .mode = GPIO_MODE_INPUT,
+        .pin_bit_mask = (1ULL << MANAGEMENT_BUTTON) | (1ULL << PROVISION_BUTTON),
+        .mode = GPIO_MODE_INPUT,
         .pull_up_en = GPIO_PULLUP_ENABLE, .intr_type = GPIO_INTR_DISABLE,
     };
     ESP_ERROR_CHECK(gpio_config(&button));
     network_init();
-    bool enter_management = !scheduled_start || management_button_pressed();
+    bool reprovision = provision_button_pressed();
+    bool enter_management = !scheduled_start || management_button_pressed() || reprovision;
     bool force_full = false;
     if (get_usb_connected()) force_full = usb_set_time();
-    enter_management |= management_button_pressed();
+    reprovision |= provision_button_pressed();
+    enter_management |= management_button_pressed() || reprovision;
     i2c_shtc3_init();
 
     esp_err_t mounted = cache_mount();
@@ -107,13 +124,14 @@ void app_main(void)
     assert(frame);
     epaper_port_init();
     if (enter_management) {
-        run_management();
+        run_management(reprovision);
         force_full = true;
     }
 
     for (;;) {
-        if (management_button_pressed()) {
-            run_management();
+        bool reconfigure = provision_button_pressed();
+        if (management_button_pressed() || reconfigure) {
+            run_management(reconfigure);
             force_full = true;
         }
         if (network_daily_sync()) force_full = true;
@@ -158,8 +176,9 @@ void app_main(void)
         // already powered off. PWR manually starts management from power-off.
         int64_t deadline = esp_timer_get_time() + (60 - after.tm_sec) * 1000000LL;
         while (esp_timer_get_time() < deadline) {
-            if (management_button_pressed()) {
-                run_management();
+            bool reconfigure = provision_button_pressed();
+            if (management_button_pressed() || reconfigure) {
+                run_management(reconfigure);
                 force_full = true;
                 break;
             }
