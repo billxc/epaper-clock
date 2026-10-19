@@ -6,7 +6,9 @@ Waveshare **ESP32-S3-ePaper-3.97** 的节能时钟固件，使用 **ESP-IDF 5.5.
 
 ## 首次设置：HTTPS 网页 → BLE → 路由器
 
-计划配网页：**https://billxc.github.io/epaper-clock/**（尚待 Pages 发布；当前仓库仍为私有）
+配网页：**https://billxc.github.io/epaper-clock/**（GitHub Pages，已启用 HTTPS）
+
+仓库已公开，并按维护者授权保留原始提交历史及作者邮箱。
 
 1. 首次没有 Wi-Fi 配置时，手动开机进入 BLE 配网。屏幕显示设备名与一次性校验码。
 2. 手机/电脑打开上面的 HTTPS 页面，点击连接设备，选择屏幕上的 `PROV_EPAPER_…`。
@@ -109,7 +111,7 @@ uv run --with pyserial python tools/set_time.py /dev/ttyACM0
 - BLE 只在物理触发/首次设置时短时开放，并要求屏幕上的随机 PoP。
 - HTTP 使用临时 Basic 认证，但**没有 TLS**，仅限可信局域网，不开放公网端口。
 - Wi-Fi 凭据存在设备 NVS，未启用 Flash 加密，不抵御物理读取。
-- 本仓库不包含个人 Wi-Fi、真实设备数据、个人邮箱或本机路径。
+- 已检查源码快照及历史文件，不含个人 Wi-Fi、真实设备数据或本机路径；原提交作者邮箱按授权保留。
 - 新代码为 MIT，第三方驱动保留原许可，来源见 [THIRD_PARTY.md](THIRD_PARTY.md)。
 
 ## 实机验收（待完成）

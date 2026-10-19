@@ -30,9 +30,9 @@ python3 -m http.server 8000 --directory docs
 
 在本机浏览器打开 `http://localhost:8000/`。其他电脑/手机访问普通 HTTP 局域网地址不是安全上下文，
 应改用 HTTPS；不能直接双击 `file://` 页面。
-计划公开仓库为 [`billxc/epaper-clock`](https://github.com/billxc/epaper-clock)，页面地址为
-`https://billxc.github.io/epaper-clock/`（是否已经发布由维护者确认）。
-部署时由维护者在 GitHub Pages 选择目标分支的 **`/docs`** 目录。所有资源使用相对路径，
+公开仓库为 [`billxc/epaper-clock`](https://github.com/billxc/epaper-clock)，已发布页面：
+`https://billxc.github.io/epaper-clock/`（强制 HTTPS）。
+GitHub Pages 来源为 **`main` 分支的 `/docs`** 目录。所有资源使用相对路径，
 适合项目站点子路径，不需要构建、后端、CDN、Service Worker 或远端运行依赖。
 仓库公开历史与 Pages 发布状态以项目根目录 README 为准。
 
