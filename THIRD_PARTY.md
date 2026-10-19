@@ -41,13 +41,16 @@ example; it is cited as a hardware reference, not relicensed wholesale.
 
 `main/ui_font.c` contains a 24×24 bitmap font generated from Noto Sans SC,
 covering printable ASCII, common GB2312 Han characters and CJK punctuation.
+`main/clock_font.c` contains native-size 200px time and 40px reading glyphs
+from the same font; the renderer does not enlarge a low-resolution bitmap.
 It is a SIL Open Font License 1.1 derivative, not covered by the root MIT grant.
 The full license is retained in `tools/OFL-NotoSansSC.txt`.
 
 - Source: https://github.com/notofonts/noto-cjk/blob/main/Sans/Variable/TTF/Subset/NotoSansSC-VF.ttf
 - Input SHA-256: `d68bafcb48a2707749396aa12bbbd833cb70401f3a9a689fd2902c7e0d295964`
-- Reproducer: `tools/generate_ui_font.cjs`; the full input TTF is not vendored.
-- The derived bitmap resource is named the epaper-clock UI font.
+- Reproducers: `tools/generate_ui_font.cjs` and `tools/generate_clock_font.cjs`;
+  the full input TTF is not vendored.
+- The derived bitmap resources are named the epaper-clock UI and clock fonts.
 
 ## ESP-IDF provisioning protocol
 

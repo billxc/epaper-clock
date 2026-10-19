@@ -1,55 +1,9 @@
 #include "display.h"
 #include "ui_font.h"
+#include "clock_font.h"
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
-
-// Original 5x7 bitmap glyphs; all assets are embedded, no external font files.
-static const struct { char character; uint8_t rows[7]; } glyphs[] = {
-    {'0',{14,17,19,21,25,17,14}}, {'1',{4,12,4,4,4,4,14}},
-    {'2',{14,17,1,2,4,8,31}}, {'3',{30,1,1,14,1,1,30}},
-    {'4',{2,6,10,18,31,2,2}}, {'5',{31,16,16,30,1,1,30}},
-    {'6',{14,16,16,30,17,17,14}}, {'7',{31,1,2,4,8,8,8}},
-    {'8',{14,17,17,14,17,17,14}}, {'9',{14,17,17,15,1,1,14}},
-    {':',{0,4,4,0,4,4,0}}, {'-',{0,0,0,31,0,0,0}},
-    {'.',{0,0,0,0,0,12,12}}, {'%',{17,2,4,8,16,17,0}},
-    {'A',{14,17,17,31,17,17,17}}, {'B',{30,17,17,30,17,17,30}},
-    {'C',{14,17,16,16,16,17,14}}, {'D',{30,17,17,17,17,17,30}},
-    {'E',{31,16,16,30,16,16,31}}, {'H',{17,17,17,31,17,17,17}},
-    {'I',{14,4,4,4,4,4,14}}, {'L',{16,16,16,16,16,16,31}},
-    {'M',{17,27,21,21,17,17,17}}, {'P',{30,17,17,30,16,16,16}},
-    {'R',{30,17,17,30,20,18,17}}, {'S',{15,16,16,14,1,1,30}},
-    {'T',{31,4,4,4,4,4,4}}, {'U',{17,17,17,17,17,17,14}},
-    {'V',{17,17,17,17,17,10,4}}, {'Y',{17,17,10,4,4,4,4}},
-    {'F',{31,16,16,30,16,16,16}}, {'G',{14,17,16,23,17,17,15}},
-    {'N',{17,25,25,21,19,19,17}}, {'O',{14,17,17,17,17,17,14}},
-    {'W',{17,17,17,21,21,27,17}}, {'X',{17,17,10,4,10,17,17}},
-    {'a',{0,0,14,1,15,17,15}}, {'b',{16,16,30,17,17,17,30}},
-    {'c',{0,0,14,17,16,17,14}}, {'d',{1,1,15,17,17,17,15}},
-    {'e',{0,0,14,17,31,16,14}}, {'f',{6,9,8,28,8,8,8}},
-    {'i',{4,0,12,4,4,4,14}}, {'m',{0,0,26,21,21,21,21}},
-    {'n',{0,0,30,17,17,17,17}}, {'p',{0,0,30,17,30,16,16}},
-    {'r',{0,0,22,25,16,16,16}}, {'/',{1,2,2,4,8,8,16}},
-    {'K',{17,18,20,24,20,18,17}}, {'_',{0,0,0,0,0,0,31}},
-};
-
-static void text(uint8_t *frame, int x, int y, int scale, const char *value)
-{
-    for (; *value; ++value, x += 6 * scale) {
-        const uint8_t *rows = NULL;
-        for (unsigned i = 0; i < sizeof(glyphs) / sizeof(glyphs[0]); ++i)
-            if (glyphs[i].character == *value) { rows = glyphs[i].rows; break; }
-        if (!rows) continue; // Space.
-        for (int r = 0; r < 7; ++r) for (int c = 0; c < 5; ++c) {
-            if (!(rows[r] & (1 << (4 - c)))) continue;
-            for (int dy = 0; dy < scale; ++dy) for (int dx = 0; dx < scale; ++dx) {
-                int px = x + c * scale + dx, py = y + r * scale + dy;
-                if (px >= 0 && px < CLOCK_WIDTH && py >= 0 && py < CLOCK_HEIGHT)
-                    frame[py * (CLOCK_WIDTH / 8) + px / 8] &= ~(0x80 >> (px % 8));
-            }
-        }
-    }
-}
 
 /* Strict UTF-8 decoder: malformed bytes make visible placeholders rather than
  * indexing outside the font or reading past a truncated string. */
@@ -145,31 +99,58 @@ void provision_render(uint8_t *frame, const char *service_name, const char *pop,
     screen_render(frame, initial ? "初始化／配网" : "蓝牙管理模式", lines, sizeof(lines) / sizeof(lines[0]), -1);
 }
 
+static int number_width(clock_font_t font, const char *value)
+{
+    int width = 0;
+    while (*value) {
+        const clock_glyph_t *glyph = clock_font_glyph(font, next_codepoint(&value));
+        if (glyph) width += glyph->advance;
+    }
+    return width;
+}
+
+static void number_text(uint8_t *frame, int x, int baseline,
+                        clock_font_t font, const char *value)
+{
+    while (*value) {
+        const clock_glyph_t *glyph = clock_font_glyph(font, next_codepoint(&value));
+        if (!glyph) continue;
+        for (unsigned row = 0; row < glyph->height; ++row)
+            for (unsigned col = 0; col < glyph->width; ++col)
+                if (glyph->bitmap[row * glyph->stride + col / 8] & (0x80u >> (col & 7)))
+                    pixel(frame, x + glyph->bearing_x + (int)col,
+                          baseline + glyph->bearing_y + (int)row, true);
+        x += glyph->advance;
+    }
+}
+
 void clock_render(uint8_t *frame, const struct tm *time, bool valid_time,
                   float temperature, float humidity, int battery)
 {
     memset(frame, 0xff, CLOCK_FRAME_SIZE);
-    char value[32];
+    char value[48];
     if (valid_time) {
-        strftime(value, sizeof(value), "%Y-%m-%d", time);
-        text(frame, 70, 45, 4, value);
+        strftime(value, sizeof(value), "%Y年%m月%d日", time);
+        ui_text(frame, 52, 30, value, false);
         strftime(value, sizeof(value), "%H:%M", time);
     } else {
-        ui_text(frame, 70, 45, "请通过蓝牙或 USB 设置时间", false);
+        ui_text(frame, 52, 30, "尚未设置时间", false);
         strcpy(value, "--:--");
     }
-    text(frame, 70, 130, 22, value);
-    ui_text(frame, 70, 335, "温度", false);
-    ui_text(frame, 430, 335, "湿度", false);
-    if (isfinite(temperature)) snprintf(value, sizeof(value), "%.1f C", temperature);
-    else strcpy(value, "--.- C");
-    text(frame, 70, 380, 5, value);
+    number_text(frame, (CLOCK_WIDTH - number_width(CLOCK_FONT_TIME, value)) / 2,
+                280, CLOCK_FONT_TIME, value);
+    rectangle(frame, 52, 78, 696, 1);
+    rectangle(frame, 52, 320, 696, 1);
+    ui_text(frame, 56, 338, "温度", false);
+    ui_text(frame, 448, 338, "湿度", false);
+    if (isfinite(temperature)) snprintf(value, sizeof(value), "%.1f℃", temperature);
+    else strcpy(value, "--.-℃");
+    number_text(frame, 56, 408, CLOCK_FONT_VALUE, value);
     if (isfinite(humidity)) snprintf(value, sizeof(value), "%.1f%%", humidity);
     else strcpy(value, "--.-%");
-    text(frame, 430, 380, 5, value);
-    if (battery >= 0) {
-        snprintf(value, sizeof(value), "电量 %d%%", battery);
-        ui_text(frame, 570, 50, value, false);
-    }
-    ui_text(frame, 70, 440, "PWR 开机后长按中键打开选单", false);
+    number_text(frame, 448, 408, CLOCK_FONT_VALUE, value);
+    if (battery >= 0) snprintf(value, sizeof(value), "电量 %d%%", battery);
+    else strcpy(value, "电量 --");
+    ui_text(frame, 610, 30, value, false);
+    ui_text(frame, 52, 440, "PWR 开机后长按中键打开选单", false);
 }

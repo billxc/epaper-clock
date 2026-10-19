@@ -20,7 +20,7 @@ jobs:
           node --test docs/*.test.mjs
           cc -std=c11 -Wall -Wextra -Werror -Imain tests/menu_test.c main/menu_model.c -o /tmp/menu-test
           /tmp/menu-test
-          cc -std=c11 -Wall -Wextra -Werror -Imain tests/display_test.c main/display.c main/ui_font.c -lm -o /tmp/display-test
+          cc -std=c11 -Wall -Wextra -Werror -Imain tests/display_test.c main/display.c main/ui_font.c main/clock_font.c -lm -o /tmp/display-test
           mkdir -p /tmp/ui-preview
           /tmp/display-test /tmp/ui-preview
       - uses: actions/upload-artifact@v4

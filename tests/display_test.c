@@ -1,5 +1,6 @@
 #include "display.h"
 #include <assert.h>
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -34,6 +35,8 @@ int main(int argc, char **argv)
     struct tm time = {.tm_year = 126, .tm_mon = 9, .tm_mday = 20, .tm_hour = 23, .tm_min = 59};
     clock_render(frame, &time, true, -40.0f, 100.0f, 100);
     save(argv[1], "clock");
+    clock_render(frame, &time, false, NAN, NAN, -1);
+    save(argv[1], "clock-unset");
     puts("PASS: Chinese menu/confirmation/clock rendering and framebuffer boundaries");
     return 0;
 }
