@@ -2,11 +2,31 @@ name: Firmware
 on:
   push:
     branches: [main]
-    paths: ['main/**', 'components/**', 'CMakeLists.txt', 'sdkconfig.defaults', 'partitions.csv', '.github/workflows/firmware.yml']
+    paths: ['main/**', 'components/**', 'CMakeLists.txt', 'sdkconfig.defaults', 'partitions.csv', 'docs/*.mjs', 'docs/index.html', 'tests/**', '.github/workflows/firmware.yml']
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
+  checks:
+    if: github.event.repository.private == false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Protocol and menu tests
+        run: |
+          node --test docs/*.test.mjs
+          cc -std=c11 -Wall -Wextra -Werror -Imain tests/menu_test.c main/menu_model.c -o /tmp/menu-test
+          /tmp/menu-test
+          cc -std=c11 -Wall -Wextra -Werror -Imain tests/display_test.c main/display.c main/ui_font.c -lm -o /tmp/display-test
+          mkdir -p /tmp/ui-preview
+          /tmp/display-test /tmp/ui-preview
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ui-render-preview
+          path: /tmp/ui-preview/*.pbm
   build:
     if: github.event.repository.private == false
     runs-on: ubuntu-latest
@@ -20,12 +40,17 @@ jobs:
           . "$IDF_PATH/export.sh"
           idf.py set-target esp32s3
           idf.py build
+          idf.py merge-bin -o "$PWD/build/epaper-clock-factory.bin"
+          python tools/package_licenses.py
       - uses: actions/upload-artifact@v4
         with:
           name: epaper-clock-firmware
           path: |
             build/epaper-clock.bin
+            build/epaper-clock-factory.bin
+            build/ota_data_initial.bin
             build/bootloader/bootloader.bin
             build/partition_table/partition-table.bin
             build/flasher_args.json
             build/flash_args
+            build/licenses/**

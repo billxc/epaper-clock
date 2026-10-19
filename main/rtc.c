@@ -2,6 +2,11 @@
 #include "rtc.h"
 #include "i2c_bsp.h"
 #include "driver/gpio.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
+
+static StaticSemaphore_t rtc_lock_storage;
+static SemaphoreHandle_t rtc_lock;
 
 static uint8_t read_reg(uint8_t reg)
 {
@@ -25,6 +30,7 @@ bool rtc_alarm_pending(void)
 
 void clock_rtc_init(void)
 {
+    rtc_lock = xSemaphoreCreateMutexStatic(&rtc_lock_storage);
     gpio_config_t config = {
         .pin_bit_mask = (1ULL << 45) | (1ULL << 1), .mode = GPIO_MODE_INPUT,
         .pull_up_en = GPIO_PULLUP_ENABLE, .intr_type = GPIO_INTR_DISABLE,
@@ -37,8 +43,11 @@ void clock_rtc_init(void)
 bool rtc_read(struct tm *time)
 {
     uint8_t data[7];
-    // One burst avoids mixing dates across a seconds rollover.
+    xSemaphoreTake(rtc_lock, portMAX_DELAY);
+    // One burst avoids mixing dates across a seconds rollover; serialize it
+    // against the multi-register set operation from BLE/HTTP worker tasks.
     ESP_ERROR_CHECK(i2c_read_reg(PCF85063Addr, 0x04, data, sizeof(data)));
+    xSemaphoreGive(rtc_lock);
     *time = (struct tm) {
         .tm_sec = from_bcd(data[0] & 0x7f), .tm_min = from_bcd(data[1] & 0x7f),
         .tm_hour = from_bcd(data[2] & 0x3f), .tm_mday = from_bcd(data[3] & 0x3f),
@@ -53,6 +62,7 @@ void rtc_set(time_t epoch)
 {
     struct tm time;
     localtime_r(&epoch, &time);
+    xSemaphoreTake(rtc_lock, portMAX_DELAY);
     uint8_t control = read_reg(0x00);
     write_reg(0x00, control | 0x20); // STOP while setting the calendar.
     uint8_t data[] = {
@@ -62,10 +72,12 @@ void rtc_set(time_t epoch)
     };
     ESP_ERROR_CHECK(i2c_write_reg(PCF85063Addr, 0x04, data, sizeof(data)));
     write_reg(0x00, control & ~0x20);
+    xSemaphoreGive(rtc_lock);
 }
 
 void rtc_arm_next_minute(void)
 {
+    xSemaphoreTake(rtc_lock, portMAX_DELAY);
     unsigned minute = from_bcd(read_reg(0x05) & 0x7f);
     // Match only minute and second. Date/hour rollover then needs no arithmetic.
     uint8_t alarm[] = {0x00, to_bcd((minute + 1) % 60), 0x80, 0x80, 0x80};
@@ -73,4 +85,5 @@ void rtc_arm_next_minute(void)
     write_reg(0x01, control);
     ESP_ERROR_CHECK(i2c_write_reg(PCF85063Addr, 0x0b, alarm, sizeof(alarm)));
     write_reg(0x01, control | 0x80);
+    xSemaphoreGive(rtc_lock);
 }

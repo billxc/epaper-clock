@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Set local RTC from host UTC epoch. Run during the USB startup window."""
+"""Set RTC from host UTC epoch while the USB-connected firmware is running."""
 import argparse
 import time
 
@@ -19,4 +19,4 @@ with serial.Serial(args.port, 115200, timeout=0.2) as port:
             print("RTC set from host time. Firmware applies its configured time zone.")
             break
     else:
-        raise SystemExit("No TIME_OK: restart/power on the board with USB attached and retry within 10 seconds.")
+        raise SystemExit("No TIME_OK: restart/power on with USB data connected, close other serial tools, and retry.")

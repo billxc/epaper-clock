@@ -12,8 +12,9 @@ The public ESP-IDF display port is based on Waveshare's explicitly licensed
 
 `components/epaper_port/epaper_port.c` retains the Waveshare team attribution,
 permission notice and disclaimer. Its ESP-IDF SPI/GPIO transport and board
-power control are project code. The earlier private prototype's unlicensed
-board-specific display implementation is not included in this public history.
+power control are project code. Earlier prototype snapshots remain in the
+preserved Git history; the root MIT license must not be interpreted as
+retroactively relicensing third-party code without an explicit upstream grant.
 
 ## XPowersLib
 
@@ -35,6 +36,18 @@ Pin assignments, peripheral addresses and register values are hardware facts.
 The public application, SHTC3 driver, RTC scheduling, I2C/SD glue, renderer and
 web UI are project code. No repository-wide license is assumed for the board
 example; it is cited as a hardware reference, not relicensed wholesale.
+
+## Noto Sans SC bitmap font
+
+`main/ui_font.c` contains a 24×24 bitmap font generated from Noto Sans SC,
+covering printable ASCII, common GB2312 Han characters and CJK punctuation.
+It is a SIL Open Font License 1.1 derivative, not covered by the root MIT grant.
+The full license is retained in `tools/OFL-NotoSansSC.txt`.
+
+- Source: https://github.com/notofonts/noto-cjk/blob/main/Sans/Variable/TTF/Subset/NotoSansSC-VF.ttf
+- Input SHA-256: `d68bafcb48a2707749396aa12bbbd833cb70401f3a9a689fd2902c7e0d295964`
+- Reproducer: `tools/generate_ui_font.cjs`; the full input TTF is not vendored.
+- The derived bitmap resource is named the epaper-clock UI font.
 
 ## ESP-IDF provisioning protocol
 

@@ -1,6 +1,7 @@
 import { BleTransport, serviceUUID } from './ble.mjs';
 import { Security1, cryptoCheck } from './security1.mjs';
-import { configRequest, configResponse, credentials, wifiStatus, wifiDisposition, scanRequest, scanResponse, scanEntries, concat, uint, number } from './protocol.mjs';
+import { configRequest, configResponse, credentials, scanRequest, scanResponse, scanEntries, concat, uint, number } from './protocol.mjs';
+import { validatePop, localDateEpoch, phoneTime, requestControl, wifiOutcome } from './clock-control.mjs';
 
 const $ = id => document.getElementById(id);
 let compatible = false, transport = null, session = null, busy = false, epoch = 0, expiry;
@@ -10,11 +11,12 @@ function controls() {
   $('connect').disabled = !compatible || busy || !!transport;
   $('disconnect').disabled = !transport && !busy;
   $('pop').disabled = $('service').disabled = busy || !!transport;
-  $('wifi-fields').disabled = busy || !session;
-  $('scan').disabled = !transport?.endpoints.has('prov-scan');
+  $('wifi-fields').disabled = $('time-fields').disabled = busy || !session;
+  $('refresh').disabled = busy || !session;
+  $('scan').disabled = busy || !session || !transport?.endpoints.has('prov-scan');
 }
 function clearInputs() {
-  for (const id of ['pop', 'ssid', 'password']) $(id).value = '';
+  for (const id of ['pop', 'ssid', 'password', 'local-time']) $(id).value = '';
   $('open-network').checked = false;
   $('networks').replaceChildren(new Option('尚未扫描', ''));
 }
@@ -31,13 +33,29 @@ function errorMessage(error) {
   if (error.name === 'NetworkError') return 'BLE 通信失败。可能是 PoP 错误、设备退出管理或系统 MTU/长写不兼容；请重新开启管理并连接。';
   return error.message || '发生未知错误';
 }
+function renewExpiry() {
+  clearTimeout(expiry);
+  expiry = setTimeout(() => close('网页连续 5 分钟无主动设置操作，已断开并清空。状态轮询不延长设备服务；请以设备屏幕为准。'), 5 * 60 * 1000);
+}
+function deviceSummary(r) {
+  return `Wi-Fi：${r.wifi_saved ? '本次设置已保存' : r.wifi_configured ? '已有配置' : '尚未设置'}。\n设备时间：${r.rtc_valid ? `${r.rtc_time}（设备本地时间）` : '尚未设置'}。${r.time_set ? '\n本次手动时间已保存。' : ''}`;
+}
+async function prepareWifi(secure, active) {
+  let ready = await requestControl(secure, 'prepare_wifi'); active();
+  const deadline = Date.now() + 10000;
+  while (!ready.wifi_ready && ready.wifi_state === 'preparing' && Date.now() < deadline) {
+    await delay(250); active();
+    ready = await requestControl(secure, 'status'); active();
+  }
+  return ready;
+}
 async function operation(task) {
   if (busy || !session) return;
   const mine = epoch;
   busy = true; controls();
   const current = session;
   try { await task(current, () => { if (mine !== epoch) throw new Error('操作已取消'); }); }
-  catch (error) { if (mine === epoch) close(`未确认配网成功：${errorMessage(error)}\n会话已关闭；如已提交，请先查看设备状态，不要把断开视为成功。`); }
+  catch (error) { if (mine === epoch) close(`操作未获完整确认：${errorMessage(error)}\n会话已关闭；已收到的保存/设时 ACK 仍然有效，但不能把断开视为其它操作成功。`); }
   finally { if (mine === epoch) { busy = false; controls(); } }
 }
 $('connect').addEventListener('click', async () => {
@@ -45,7 +63,7 @@ $('connect').addEventListener('click', async () => {
   let uuid, pop = $('pop').value.trim();
   try {
     uuid = serviceUUID($('service').value);
-    if (!/^[0-9]{6}$/.test(pop)) throw new Error('请输入屏幕上的 6 位数字校验码（保留开头的 0）');
+    pop = validatePop(pop);
   } catch (error) { show(errorMessage(error)); return; }
   const mine = ++epoch;
   busy = true; $('pop').value = ''; controls(); show('请在浏览器弹窗中明确选择你的设备…');
@@ -54,17 +72,20 @@ $('connect').addEventListener('click', async () => {
     const device = await BleTransport.choose(uuid);
     if (mine !== epoch) return;
     const current = new BleTransport(device, () => {
-      if (transport === current) close('BLE 已断开，尚未确认配网成功。请查看设备屏幕；需要时重新开启管理模式。');
+      if (transport === current) close('BLE 已断开。已收到的保存/设时 ACK 仍然有效；断开本身不代表操作成功。请查看设备屏幕，需要时重新进入蓝牙管理。');
     });
     transport = current; controls();
-    expiry = setTimeout(() => close('网页会话已满 5 分钟，已断开并清空。设备端仍须自行执行管理模式超时。'), 5 * 60 * 1000);
-    show('正在读取 endpoint 描述符并进行 Security1 + PoP 身份验证…');
+    renewExpiry();
+    show('正在连接并验证设备，请稍候…');
     await current.open(uuid);
+    current.requireEndpoint('clock-control');
     if (mine !== epoch) return;
     const established = await Security1.establish((...args) => current.exchange(...args), pop);
     if (mine !== epoch) { established.destroy(); return; }
     session = established;
-    show('设备 PoP 验证通过。请输入你自己的 2.4 GHz 局域网 SSID 和密码。');
+    const status = await requestControl(established, 'status');
+    if (mine !== epoch) return;
+    show(`设备已连接，可以设置 Wi-Fi 或时间。\n${deviceSummary(status)}`);
   } catch (error) { if (mine === epoch) close(`连接失败：${errorMessage(error)}\n没有降级到 Security0。`); }
   finally {
     pop = '';
@@ -82,34 +103,45 @@ $('wifi').addEventListener('submit', event => {
     packet = credentials($('ssid').value, $('password').value);
   } catch (error) { show(errorMessage(error)); return; }
   $('password').value = ''; $('open-network').checked = false;
+  renewExpiry();
   operation(async (secure, active) => {
-    show('正在通过加密 BLE 发送凭据…');
-    try { configResponse(await secure.request('prov-config', packet), 3); }
-    finally { packet.fill(0); }
-    active();
-    configResponse(await secure.request('prov-config', configRequest(4)), 5);
-    active(); show('设备已接受配置，正在查询连接结果（不代表已连接成功）…');
-    const deadline = Date.now() + 90000;
-    while (Date.now() < deadline) {
-      active();
-      const status = wifiStatus(await secure.request('prov-config', configRequest(0)));
-      active();
-      const disposition = wifiDisposition(status);
-      if (disposition === 'connected') {
-        close(`设备报告 Wi-Fi 已连接。\nLAN IPv4：${status.ip || '设备未返回 IP'}\n已断开网页 BLE 会话；请以设备屏幕确认配置保存完成。设备将自动退出管理模式。`);
+    try {
+      show('正在准备 Wi-Fi 设置…');
+      const ready = await prepareWifi(secure, active);
+      if (!ready.wifi_ready) {
+        show(`设备未就绪（${ready.wifi_state}），没有发送凭据；请重试。`);
         return;
       }
-      if (disposition === 'retry') {
-        show(`本次未连接成功：${status.reason || '设备已断开/空闲（Disconnected / IDLE）'}。\n已停止轮询，BLE 验证会话仍保留。请核对 SSID、重新输入密码并点击提交；如设备已退出管理模式，请重新开启并连接。`);
-        return;
+      const attempt = ready.wifi_attempt;
+      show('正在发送 Wi-Fi 设置…');
+      configResponse(await secure.request('prov-config', packet), 3); active();
+      packet.fill(0);
+      configResponse(await secure.request('prov-config', configRequest(4)), 5); active();
+      const deadline = Date.now() + 90000;
+      while (Date.now() < deadline) {
+        const status = await requestControl(secure, 'status'); active();
+        const outcome = wifiOutcome(status, attempt);
+        if (outcome === 'saved') {
+          show(`Wi-Fi 设置成功。\n${deviceSummary(status)}\n蓝牙管理可继续设置时间；首次初始化完成后，设备会回到时钟。`);
+          return;
+        }
+        if (outcome === 'failed') {
+          show(`本次未保存成功（${status.wifi_state}），不覆盖旧配置。请核对后重新提交；安全会话保留。`);
+          return;
+        }
+        show('正在连接网络并保存设置，请稍候…');
+        await delay(700); active();
       }
-      show(`正在连接…${status.reason || '等待 DHCP / 路由器响应'}。`);
-      await delay(1000);
-    }
-    close('90 秒内未确认连接成功，已断开。请查看设备屏幕和路由器状态；凭据可能已保存，不能把超时当作成功。');
+      show('90 秒内未收到保存 ACK，结果未知，不视为成功。可点“读取设备状态”；若仍连接中请等待，不自动重发凭据。');
+    } finally { packet.fill(0); }
   });
 });
 $('scan').addEventListener('click', () => operation(async (secure, active) => {
+  // Scanning is an explicit Wi-Fi operation. Prepare once to renew the device
+  // activity window, and to avoid scanning in an old SDK success state.
+  renewExpiry();
+  const ready = await prepareWifi(secure, active);
+  if (!ready.wifi_ready) { show(`扫描前设备未就绪（${ready.wifi_state}），请重试。`); return; }
   show('设备正在扫描附近 Wi-Fi…');
   // Nonblocking, active scan, 5-channel groups, 120 ms/channel; official wifi_scan.proto.
   scanResponse(await secure.request('prov-scan', scanRequest(0, concat(uint(3, 5), uint(4, 120)))), 1);
@@ -140,6 +172,30 @@ $('scan').addEventListener('click', () => operation(async (secure, active) => {
   $('networks').replaceChildren(...options);
   show(`扫描完成，设备返回 ${count} 项，读取前 ${Math.min(count, 30)} 项并去重。隐藏网络请手动输入；密码不会自动读取。`);
 }));
+$('refresh').addEventListener('click', () => operation(async (secure, active) => {
+  const status = await requestControl(secure, 'status'); active();
+  show(deviceSummary(status)); // Read-only: no idle-window renewal.
+}));
+$('phone-time').addEventListener('click', () => {
+  const time = phoneTime();
+  $('local-time').value = time.value;
+  $('timezone').value = time.offset;
+  show('已填入手机当前日期时间和此刻 UTC 偏移；尚未发送。请核对后点击写入 RTC。');
+});
+$('time').addEventListener('submit', event => {
+  event.preventDefault();
+  if (busy || !session) return;
+  let time;
+  try { time = localDateEpoch($('local-time').value, $('timezone').value); }
+  catch (error) { show(errorMessage(error)); return; }
+  renewExpiry();
+  operation(async (secure, active) => {
+    show('正在设置设备时间，不需要连接互联网…');
+    const result = await requestControl(secure, 'set_time', time); active();
+    if (!result.time_set || !result.rtc_valid) throw new Error('设备未确认 RTC 写入有效');
+    show(`时间设置成功。\n${deviceSummary(result)}\n蓝牙管理不会因此自动退出；首次初始化还需要完成 Wi-Fi 设置。`);
+  });
+});
 $('networks').addEventListener('change', () => {
   if ($('networks').value) $('ssid').value = $('networks').value;
 });

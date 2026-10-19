@@ -40,13 +40,17 @@ export class BleTransport {
         this.endpoints.set(name, characteristic);
       }
       for (const name of ['prov-session', 'prov-config']) {
-        const c = this.endpoints.get(name);
-        if (!c || !c.properties.read || !c.properties.write || typeof c.writeValueWithResponse !== 'function') {
-          throw new Error(`缺少可读写 endpoint：${name}（需要 0x2901 描述符）`);
-        }
+        this.requireEndpoint(name);
       }
       if (this.closed) throw new Error('BLE 连接已关闭');
     } catch (error) { this.close(); throw error; }
+  }
+  requireEndpoint(name) {
+    const c = this.endpoints.get(name);
+    if (!c || !c.properties.read || !c.properties.write || typeof c.writeValueWithResponse !== 'function') {
+      throw new Error(`缺少可读写 endpoint：${name}（需要 0x2901 描述符；不支持旧固件或明文降级）`);
+    }
+    return c;
   }
   async exchange(name, data) {
     if (this.closed || !this.device.gatt.connected || this.busy) throw new Error('BLE 已断开或请求并发');

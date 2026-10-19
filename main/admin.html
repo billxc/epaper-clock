@@ -5,94 +5,235 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>电子纸时钟管理</title>
 <style>
-:root{color-scheme:light dark;font-family:system-ui,sans-serif;line-height:1.6}body{max-width:760px;margin:auto;padding:20px}h1{font-size:1.7rem}section{border:1px solid #8887;border-radius:12px;padding:18px;margin:18px 0}.notice{border-left:4px solid #b77900;padding:12px;background:#bb880015}dl{display:grid;grid-template-columns:7em 1fr;gap:10px}dt{font-weight:bold}dd{margin:0;overflow-wrap:anywhere}button{font:inherit;box-sizing:border-box;min-height:44px;padding:8px 16px;cursor:pointer;border:1px solid #888;border-radius:6px}button:disabled{cursor:wait;opacity:.6}.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}small{display:block;opacity:.8}#message{white-space:pre-wrap;overflow-wrap:anywhere;min-height:2em}@media(max-width:440px){body{padding:12px}section{padding:12px}dl{grid-template-columns:6em 1fr}.actions button{width:100%}}
+:root{color-scheme:light dark;font-family:system-ui,sans-serif;line-height:1.6}body{max-width:760px;margin:auto;padding:20px}h1{font-size:1.7rem}section{border:1px solid #8887;border-radius:12px;padding:18px;margin:18px 0}.notice{border-left:4px solid #b77900;padding:12px;background:#bb880015}dl{display:grid;grid-template-columns:7em 1fr;gap:10px}dt{font-weight:bold}dd{margin:0;overflow-wrap:anywhere}button,input{font:inherit;box-sizing:border-box;min-height:44px;max-width:100%}button{padding:8px 16px;cursor:pointer;border:1px solid #888;border-radius:6px}button:disabled{cursor:wait;opacity:.6}.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}small{display:block;opacity:.8}#message,#ota-message{white-space:pre-wrap;overflow-wrap:anywhere;min-height:2em}progress{width:100%}@media(max-width:440px){body{padding:12px}section{padding:12px}dl{grid-template-columns:6em 1fr}.actions button{width:100%}}
 </style>
 </head>
 <body>
 <h1>电子纸时钟管理</h1>
-<p class="notice">仅限与时钟处于同一可信局域网的设备访问。HTTP 和 Basic 认证不加密，请勿将此服务暴露到公网或用于不可信网络。用户名为 <b>admin</b>，HTTP 登录密码为本次时钟屏幕显示的临时密码，不是路由器密码。</p>
-<p>无操作 5 分钟自动退出，单次管理最多 15 分钟。下方每 10 秒自动更新状态，不延长管理时间。</p>
+<p class="notice">仅限同一可信局域网。HTTP 和 Basic 认证不加密，勿暴露到公网或不可信网络。用户名为 <b>admin</b>，密码为本次屏幕上的临时密码，不是路由器密码。升级及回滚后保留该临时密码。</p>
+<p>无用户操作 5 分钟自动退出；持续操作无总时长上限。每 10 秒自动读取状态不续期。升级中暂停闲置退出和模式切换。</p>
 <section aria-labelledby="status-title">
 <h2 id="status-title">当前状态</h2>
 <dl>
+<dt>固件版本</dt><dd id="version">读取中…</dd>
+<dt>OTA 状态</dt><dd id="ota-state">—</dd>
 <dt>RTC 时间</dt><dd id="rtc">读取中…</dd>
 <dt>RTC 有效</dt><dd id="valid">—</dd>
 <dt>STA 连接</dt><dd id="connected">—</dd>
 <dt>STA 地址</dt><dd id="ip">—</dd>
 <dt>配置的 SSID</dt><dd id="ssid">—</dd>
-<dt>上次校时</dt><dd id="sync">—</dd>
+<dt>上次 NTP 校时</dt><dd id="sync">—</dd>
 </dl>
 </section>
 <section aria-labelledby="wifi-title">
 <h2 id="wifi-title">Wi-Fi 设置</h2>
-<p>时钟连接用户路由器。本页不提供 Wi-Fi 凭据设置，也不会显示已保存的 Wi-Fi 密码。Wi-Fi 设置仅通过单独的 GitHub Pages HTTPS 页面，使用蓝牙（BLE）完成。</p>
-<p><a href="https://billxc.github.io/epaper-clock/" target="_blank" rel="noopener noreferrer">打开 HTTPS 蓝牙配网页</a>（先退出管理，再按项目说明让设备进入 BLE 配网模式）</p>
+<p>本页不设置或显示 Wi-Fi 密码。Wi-Fi 设置仅通过独立 HTTPS 页面和蓝牙（BLE）完成；BLE 页面不提供固件升级。</p>
+<p><a href="https://billxc.github.io/epaper-clock/" target="_blank" rel="noopener noreferrer">打开 HTTPS 蓝牙配网页</a>（先退出管理，再通过屏幕菜单进入蓝牙管理或配网）</p>
 </section>
 <div class="actions">
 <button id="sync-now" type="button">立即校时</button>
 <button id="exit" type="button">退出管理</button>
 </div>
-<p><small>立即校时通过已连接的路由器访问时间服务器，可能等待约 25 秒。</small></p>
+<p><small>立即校时通过路由器访问时间服务器，可能等待约 25 秒。</small></p>
 <p id="message" role="status" aria-live="polite"></p>
+<section aria-labelledby="ota-title">
+<h2 id="ota-title">本地固件升级</h2>
+<p class="notice">仅上传本项目、对应芯片的独立应用 <code>.bin</code>。不要上传 bootloader、分区表、合并镜像或其它项目。不会自动下载远程版本。升级前保持可靠供电，过程中不要断电或关闭设备。</p>
+<p>首次支持 OTA 的固件必须通过 USB 刷入。新固件通过本机基础硬件健康检查才确认启动；启动失败将回滚至旧的 OTA 固件，并恢复本管理页。若屏幕菜单已打开，请先选择「LAN 管理模式」关闭菜单，再上传，以保证屏幕能显示升级警告。</p>
+<label for="firmware">选择本地应用 bin：</label>
+<input id="firmware" type="file" accept=".bin,application/octet-stream">
+<div class="actions"><button id="upgrade" type="button">上传并升级</button></div>
+<progress id="progress" value="0" max="100" aria-label="固件上传进度"></progress>
+<p id="ota-message" role="status" aria-live="polite">尚未上传。</p>
+</section>
 <script>
 'use strict';
 const byId = id => document.getElementById(id);
-let busy = false, ended = false;
+let busy = false, ended = false, upgrading = false, baselineBoot = null;
 const message = text => { byId('message').textContent = text; };
-async function request(path, body) {
-  const options = {credentials: 'same-origin', cache: 'no-store'};
+const otaMessage = text => { byId('ota-message').textContent = text; };
+function controls(disabled) {
+  document.querySelectorAll('button,input').forEach(el => { el.disabled = disabled; });
+}
+async function request(path, body, timeout = 35000) {
+  const options = {credentials: 'same-origin', cache: 'no-store', signal: AbortSignal.timeout(timeout)};
   if (body !== undefined) {
     options.method = 'POST';
     options.headers = {'Content-Type': 'application/json'};
     options.body = JSON.stringify(body);
   }
-  // Browser handles the HTTP Basic challenge; no credential/token is stored here.
+  // Browser owns Basic auth. No password or recovery credential in JS/storage.
   const response = await fetch(path, options);
   const data = await response.json();
   if (!response.ok || data.ok === false) throw new Error(data.error || '请求失败');
   return data;
 }
+function render(data) {
+  baselineBoot = data.boot_id;
+  byId('version').textContent = data.appversion || '未知';
+  byId('rtc').textContent = data.rtc_time || '无有效时间';
+  byId('valid').textContent = data.rtc_valid ? '有效' : '无效，建议校时';
+  byId('connected').textContent = data.sta_connected ? '已连接' : '未连接';
+  byId('ip').textContent = data.sta_ip || '—';
+  byId('ssid').textContent = data.ssid || '未配置';
+  byId('sync').textContent = data.last_sync > 0 ? new Date(data.last_sync * 1000).toLocaleString() : '尚无成功记录';
+  const ota = data.ota || {};
+  const names = {idle:'待机', uploading:'上传中', verifying:'校验中', rebooting:'重启中', success:'升级成功', rollback:'已回滚', error:'升级失败'};
+  byId('ota-state').textContent = `${names[ota.state] || ota.state || '未知'}：${ota.message || ''}`;
+}
 async function poll() {
   if (busy || ended) return;
   try {
     const data = await request('/api/status');
-    if (ended) return;
-    byId('rtc').textContent = data.rtc_time || '无有效时间';
-    byId('valid').textContent = data.rtc_valid ? '有效' : '无效，建议校时';
-    byId('connected').textContent = data.sta_connected ? '已连接' : '未连接';
-    byId('ip').textContent = data.sta_ip || '—';
-    byId('ssid').textContent = data.ssid || '未配置';
-    byId('sync').textContent = data.last_sync > 0 ? new Date(data.last_sync * 1000).toLocaleString() : '尚无成功记录';
+    if (ended || busy) return;
+    render(data);
+    // Also handle another browser uploading or a page refreshed during reboot.
+    if (data.ota && data.ota.busy) {
+      busy = upgrading = true;
+      controls(true);
+      otaMessage('设备正在升级，请勿断电。等待重启并自动重连…');
+      void reconnect(data.boot_id);
+    }
   } catch (_) {
-    if (!ended) message('无法读取状态：可能已自动退出，或网络已断开。请重新进入管理模式后刷新页面。');
+    if (!ended && !busy) message('无法读取状态：可能已闲置退出或网络断开。请通过屏幕菜单重新进入 LAN 管理后刷新。');
   }
 }
-async function command(path, body, exits) {
+async function command(path, exits) {
   if (busy || ended) return;
   busy = true;
-  document.querySelectorAll('button').forEach(el => { el.disabled = true; });
-  message(path === '/api/sync' ? '正在校时，请稍候（最多约 25 秒）…' : '正在处理…');
+  controls(true);
+  message(path === '/api/sync' ? '正在校时，请稍候（最多约 25 秒）…' : '正在退出…');
   try {
-    await request(path, body);
+    await request(path, {});
     if (exits) {
       ended = true;
       clearInterval(timer);
       message('已退出管理，可关闭此页面。');
-    } else {
-      message('校时成功。');
-    }
-  } catch (_) {
-    message('操作未确认成功：校时可能失败，或管理会话已结束。请重新进入管理模式后刷新页面确认状态。');
+    } else message('校时成功。');
+  } catch (error) {
+    message(`操作未确认成功：${error.message}。请确认设备状态。`);
   } finally {
     busy = false;
-    if (!ended) {
-      document.querySelectorAll('button').forEach(el => { el.disabled = false; });
-      void poll();
-    }
+    if (!ended) { controls(false); void poll(); }
   }
 }
-byId('sync-now').addEventListener('click', () => { void command('/api/sync', {}, false); });
-byId('exit').addEventListener('click', () => { void command('/api/exit', {}, true); });
+// Only trusted, explicit user click/key events renew the session; no timers,
+// load events, pointer motion, focus, synthetic events or polling renew it.
+let lastActivity = -Infinity;
+function activity(event) {
+  if (!event.isTrusted || ended || busy || event.repeat) return;
+  const now = performance.now();
+  if (now - lastActivity < 1500) return;
+  lastActivity = now;
+  void request('/api/activity', {}).catch(() => {});
+}
+document.addEventListener('click', activity, true);
+document.addEventListener('keydown', activity, true);
+byId('sync-now').addEventListener('click', event => { if (event.isTrusted) void command('/api/sync', false); });
+byId('exit').addEventListener('click', event => { if (event.isTrusted) void command('/api/exit', true); });
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+async function reconnect(oldBoot) {
+  // GET only: reconnection never holds the 5-minute management window open.
+  const deadline = Date.now() + 240000;
+  for (let attempt = 0; attempt < 90 && Date.now() < deadline; ++attempt) {
+    await sleep(2000);
+    try {
+      const data = await request('/api/status', undefined, 3000);
+      const ota = data.ota || {};
+      if (data.boot_id !== oldBoot && (ota.state === 'success' || ota.state === 'rollback')) {
+        render(data);
+        otaMessage(ota.state === 'success'
+          ? `升级成功，已重新连接。当前版本：${data.appversion}（目标：${ota.expected_version}）。闲置 5 分钟返回时钟。`
+          : `新固件未成功启动，已回滚并恢复服务。当前版本：${data.appversion}；尝试版本：${ota.expected_version}。`);
+        busy = upgrading = false;
+        controls(false);
+        return;
+      }
+      if (ota.state === 'error' && !ota.busy) {
+        render(data);
+        otaMessage(`升级失败：${ota.message}。未切换启动固件，可重新选择文件上传。`);
+        busy = upgrading = false;
+        controls(false);
+        return;
+      }
+      if (data.boot_id === oldBoot && !ota.busy &&
+          ['idle', 'success', 'rollback'].includes(ota.state)) {
+        render(data);
+        otaMessage('设备仍在原管理会话，未确认本次上传/重启。旧固件继续服务，可重新上传；不是新的升级成功结果。');
+        busy = upgrading = false;
+        controls(false);
+        return;
+      }
+    } catch (_) { /* Reboot temporarily removes the HTTP server. */ }
+  }
+  busy = upgrading = false;
+  controls(false);
+  otaMessage('未能确认重启结果。请查看屏幕；如已闲置退出，请重新进入 LAN 管理并刷新。不要在状态不明时断电。');
+}
+byId('upgrade').addEventListener('click', async event => {
+  if (!event.isTrusted || busy || ended) return;
+  const file = byId('firmware').files[0];
+  if (!file || !/\.bin$/i.test(file.name) || !file.size) {
+    otaMessage('请选择非空的本地应用 .bin 文件。');
+    return;
+  }
+  busy = upgrading = true;
+  controls(true);
+  let oldBoot;
+  try {
+    // Fresh discriminator prevents confusing a previous OTA result with this
+    // upload, including when the new build deliberately keeps the same version.
+    const data = await request('/api/status');
+    oldBoot = data.boot_id;
+  } catch (_) {
+    otaMessage('无法连接设备，未开始上传。请确认仍处于 LAN 管理。');
+    busy = upgrading = false;
+    controls(false);
+    return;
+  }
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST', '/api/ota');
+  xhr.withCredentials = true;
+  xhr.timeout = 660000;
+  xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+  byId('progress').value = 0;
+  otaMessage('正在上传 0%，请勿断电…');
+  xhr.upload.onprogress = progress => {
+    if (progress.lengthComputable) {
+      const percent = Math.round(progress.loaded / progress.total * 100);
+      byId('progress').value = percent;
+      otaMessage(`正在上传 ${percent}%，请勿断电…`);
+    }
+  };
+  xhr.upload.onload = () => {
+    byId('progress').removeAttribute('value');
+    otaMessage('上传完成，设备正在写入/校验镜像，请勿断电…');
+  };
+  xhr.onload = () => {
+    if (xhr.status >= 200 && xhr.status < 300) {
+      otaMessage('校验通过，正在重启。自动重连并确认新版本/回滚结果…');
+      void reconnect(oldBoot);
+    } else {
+      let reason = '上传被拒绝';
+      try { reason = JSON.parse(xhr.responseText).error || reason; } catch (_) {}
+      otaMessage(`升级失败：${reason}。可重新选择文件上传。`);
+      busy = upgrading = false;
+      controls(false);
+      void poll();
+    }
+  };
+  const uncertain = () => {
+    otaMessage('连接中断，正在确认：未完整上传会被丢弃；如校验已完成则可能正在重启…');
+    void reconnect(oldBoot);
+  };
+  xhr.onerror = uncertain;
+  xhr.ontimeout = uncertain;
+  xhr.onabort = uncertain;
+  xhr.send(file); // Raw File stream, no base64, FormData or whole-file RAM copy.
+});
+window.addEventListener('beforeunload', event => {
+  if (upgrading) { event.preventDefault(); event.returnValue = ''; }
+});
 const timer = setInterval(poll, 10000);
 void poll();
 </script>

@@ -5,18 +5,18 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'none'; img-src 'none'; font-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
-  <title>墨水屏时钟 · 蓝牙配网</title>
+  <title>墨水屏时钟 · 蓝牙设置</title>
   <link rel="stylesheet" href="./style.css">
   <script type="module" src="./app.mjs"></script>
 </head>
 <body>
 <main>
-  <h1>墨水屏时钟 · 蓝牙配网</h1>
-  <p class="notice"><strong>待实机联调：</strong>请使用本项目配套的 BLE 配网固件（旧版 AP/HTTP 固件不支持）。设备名为 PROV_EPAPER_ 加 6 位标识，屏幕显示 6 位数字校验码。网页不会开启热点，也不会让手机切换 Wi-Fi。</p>
+  <h1>墨水屏时钟 · 蓝牙设置</h1>
+  <p class="notice"><strong>仅用于 Wi-Fi 和时间设置。</strong>请先在设备打开初始化或蓝牙管理，再输入屏幕上的 6 位数字码。手机保持原来的网络连接即可，不需要连接设备热点。需安装本项目新版固件，仍待实机验收。</p>
   <section aria-labelledby="requirements">
     <h2 id="requirements">开始之前</h2>
     <ul>
-      <li>在设备上主动开启<strong>短时 BLE 管理模式</strong>，将设备放在附近，准备屏幕上显示的 PoP 验证码。</li>
+      <li>在设备上进入<strong>初始化／配网或蓝牙管理</strong>，将设备放在附近，准备屏幕上显示的 PoP 验证码。</li>
       <li>使用 <strong>Android 的 Chrome / Edge</strong>，或带蓝牙的桌面 Chrome / Edge。桌面系统/蓝牙驱动可能另有限制，Linux 不保证可用。</li>
       <li><strong>iPhone / iPad 的普通浏览器不支持</strong>此 Web Bluetooth 流程；Safari、Firefox 通常也不支持。</li>
       <li>部署需 <strong>HTTPS（例如 GitHub Pages）</strong>；localhost 仅用于开发。系统蓝牙须开启，并允许浏览器访问附近设备。</li>
@@ -27,8 +27,7 @@
   </section>
   <section>
     <h2>1. 选择设备并验证</h2>
-    <label for="service">BLE 服务 UUID（默认 ESP-IDF；自定义固件请核对）</label>
-    <input id="service" value="1775244d-6b43-439b-877c-060f2d9bed07" spellcheck="false" autocomplete="off">
+    <input id="service" type="hidden" value="1775244d-6b43-439b-877c-060f2d9bed07">
     <label for="pop">屏幕上的 6 位数字校验码（不是 Wi-Fi 密码）</label>
     <input id="pop" type="text" inputmode="numeric" pattern="[0-9]{6}" autocomplete="off" spellcheck="false" maxlength="6" placeholder="例如 042731">
     <div class="actions"><button id="connect" type="button" disabled>选择蓝牙设备并验证</button><button id="disconnect" type="button" disabled>断开并清空</button></div>
@@ -46,15 +45,29 @@
         <label for="password">Wi-Fi 密码（8–63 位 ASCII；个人 WPA/WPA2/WPA3，开放网络留空）</label>
         <input id="password" type="password" autocomplete="off" spellcheck="false" maxlength="63">
         <label class="check"><input id="open-network" type="checkbox"> 我确认目标为无密码的开放网络（不推荐）</label>
-        <button type="submit">通过加密 BLE 提交并查询连接状态</button>
+        <button type="submit">保存 Wi-Fi</button>
       </fieldset>
     </form>
-    <p>不支持 WEP / 企业认证。不会读取手机保存的 Wi-Fi 密码。提交后最多查询 90 秒；设备报告已连接才显示 LAN IP（配置是否保存完成请以设备屏幕为准）。失败或空闲会停止查询，允许你重新输入并提交。</p>
+    <p>设备连接成功并保存后才会报告成功；失败可修改后重试，不覆盖旧配置。不会读取手机保存的密码。不支持 WEP / 企业认证。</p>
   </section>
-  <section><h2>状态</h2><p id="status" role="status" aria-live="polite">尚未连接设备。</p></section>
+  <section>
+    <h2>3. 手动设置时间（不需要 Wi-Fi）</h2>
+    <form id="time" autocomplete="off">
+      <fieldset id="time-fields" disabled>
+        <label for="local-time">日期和时间（2000–2099 年）</label>
+        <input id="local-time" type="datetime-local" min="2000-01-01T00:00:00" max="2099-12-31T23:59:59" step="1" required>
+        <label for="timezone">上述时间的 UTC 偏移（明确填写 ±HH:MM）</label>
+        <input id="timezone" type="text" value="+08:00" pattern="[+-][0-9]{2}:[0-9]{2}" maxlength="6" required autocomplete="off" spellcheck="false">
+        <div class="actions"><button id="phone-time" type="button">用手机当前时间填充（不发送）</button><button type="submit">设置时间</button></div>
+      </fieldset>
+    </form>
+    <p>示例：北京时间 12:00、UTC 偏移 +08:00 → UTC 04:00 的整数 epoch 秒。浏览器显式转换后发送，设备再按自身时区写入 RTC；此页不会修改设备时区。手机填充使用手机此刻的时区偏移，手动改为夏令时日期时请自行核对偏移。支持范围还需满足设备本地年份 2000–2099。</p>
+    <p>写入不依赖 Wi-Fi 或 NTP。蓝牙管理不会因写入时间自动切换，可继续设置；初始化在 Wi-Fi 已配置、且本次保存或设时完成后，在 ACK 窗口后关闭 BLE，由设备决定校时及进入时钟；未设置 Wi-Fi 时，可先设时间再继续配网。</p>
+  </section>
+  <section><h2>状态</h2><button id="refresh" type="button" disabled>刷新设备状态</button><p id="status" role="status" aria-live="polite">尚未连接设备。</p></section>
   <footer>
     <p>凭据仅经 BLE 发给所选设备，不上传 GitHub、不写入 localStorage，不含分析/广告或远端脚本。GitHub Pages 仍会接收普通网页访问请求。关闭或断开页面会清空输入；JavaScript 内存不保证可安全擦除。请只在可信设备与可信页面上输入凭据。</p>
-    <p>网页断开不等于设备已关闭蓝牙：配套固件必须在成功/取消/超时后结束管理模式，日常不常驻蓝牙。详见 <a href="./README.md">协议、固件接口与验收说明</a>。</p>
+    <p>网页断开不是保存/设时成功证明，也不等于设备关闭 BLE。蓝牙管理默认连续 5 分钟无按键或主动 Wi-Fi/设时操作后回时钟，状态查询不续期；初始化的 BLE 活动窗口为 295 秒，暂停后仍在初始化，可中键重试或长按中键选单。页面不包含 LAN、NTP 或调试面板。详见 <a href="./clock-control.md">安全协议、API 与验收说明</a>。</p>
   </footer>
 </main>
 </body>
