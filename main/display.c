@@ -152,5 +152,4 @@ void clock_render(uint8_t *frame, const struct tm *time, bool valid_time,
     if (battery >= 0) snprintf(value, sizeof(value), "电量 %d%%", battery);
     else strcpy(value, "电量 --");
     ui_text(frame, 610, 30, value, false);
-    ui_text(frame, 52, 440, "PWR 开机后长按中键打开选单", false);
 }
