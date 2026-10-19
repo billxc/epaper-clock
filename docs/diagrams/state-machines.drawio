@@ -1,0 +1,740 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mxfile host="app.diagrams.net" version="24.7.17" compressed="false">
+  <diagram id="main" name="MAIN · 冷启动、用户服务与分钟循环">
+    <mxGraphModel dx="1600" dy="1150" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1150" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="edge_1" value="" style="html=1;edgeStyle=none;rounded=0;endArrow=block;endFill=1;endSize=9;strokeWidth=2.2;strokeColor=#2563a8;exitX=0.5;exitY=1.0;exitPerimeter=0;entryX=0.5;entryY=0.0;entryPerimeter=0;" edge="1" parent="1" source="boot" target="route">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="800" y="225" as="sourcePoint" />
+            <mxPoint x="800" y="290" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_2" value="" style="html=1;edgeStyle=none;rounded=0;endArrow=block;endFill=1;endSize=9;strokeWidth=2.2;strokeColor=#2563a8;exitX=0.5;exitY=1.0;exitPerimeter=0;entryX=0.5;entryY=0.0;entryPerimeter=0;" edge="1" parent="1" source="route" target="daily">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="800" y="390" as="sourcePoint" />
+            <mxPoint x="800" y="480" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_3" value="" style="html=1;edgeStyle=none;rounded=0;endArrow=block;endFill=1;endSize=9;strokeWidth=2.2;strokeColor=#8054a6;exitX=1.0;exitY=0.5;exitPerimeter=0;entryX=0.0;entryY=0.1951219512195122;entryPerimeter=0;" edge="1" parent="1" source="route" target="service">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1010" y="340" as="sourcePoint" />
+            <mxPoint x="1140" y="340" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_4" value="" style="html=1;edgeStyle=none;rounded=0;endArrow=block;endFill=1;endSize=9;strokeWidth=2.2;strokeColor=#2563a8;exitX=0.5;exitY=1.0;exitPerimeter=0;entryX=1.0;entryY=0.5;entryPerimeter=0;" edge="1" parent="1" source="service" target="daily">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1330" y="505" as="sourcePoint" />
+            <mxPoint x="1010" y="525" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="1330" y="600" />
+              <mxPoint x="1060" y="600" />
+              <mxPoint x="1060" y="525" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_5" value="" style="html=1;edgeStyle=none;rounded=0;endArrow=block;endFill=1;endSize=9;strokeWidth=2.2;strokeColor=#2563a8;exitX=0.5;exitY=1.0;exitPerimeter=0;entryX=0.5;entryY=0.0;entryPerimeter=0;" edge="1" parent="1" source="daily" target="refresh">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="800" y="570" as="sourcePoint" />
+            <mxPoint x="800" y="655" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_6" value="" style="html=1;edgeStyle=none;rounded=0;endArrow=block;endFill=1;endSize=9;strokeWidth=2.2;strokeColor=#2563a8;exitX=0.5;exitY=1.0;exitPerimeter=0;entryX=0.5;entryY=0.0;entryPerimeter=0;" edge="1" parent="1" source="refresh" target="boundary">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="800" y="755" as="sourcePoint" />
+            <mxPoint x="800" y="825" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_7" value="" style="html=1;edgeStyle=none;rounded=0;endArrow=block;endFill=1;endSize=9;strokeWidth=2.2;strokeColor=#2563a8;exitX=0.0;exitY=0.5;exitPerimeter=0;entryX=0.0;entryY=0.5;entryPerimeter=0;" edge="1" parent="1" source="boundary" target="daily">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="590" y="865" as="sourcePoint" />
+            <mxPoint x="590" y="525" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="490" y="865" />
+              <mxPoint x="490" y="525" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_8" value="" style="html=1;edgeStyle=none;rounded=0;endArrow=block;endFill=1;endSize=9;strokeWidth=2.2;strokeColor=#647080;exitX=0.30952380952380953;exitY=1.0;exitPerimeter=0;entryX=0.5;entryY=0.0;entryPerimeter=0;" edge="1" parent="1" source="boundary" target="off">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="720" y="905" as="sourcePoint" />
+            <mxPoint x="450" y="995" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="720" y="950" />
+              <mxPoint x="450" y="950" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_9" value="" style="html=1;edgeStyle=none;rounded=0;endArrow=block;endFill=1;endSize=9;strokeWidth=2.2;strokeColor=#2563a8;exitX=0.6904761904761905;exitY=1.0;exitPerimeter=0;entryX=0.5;entryY=0.0;entryPerimeter=0;" edge="1" parent="1" source="boundary" target="usb">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="880" y="905" as="sourcePoint" />
+            <mxPoint x="1150" y="995" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="880" y="950" />
+              <mxPoint x="1150" y="950" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_10" value="" style="html=1;edgeStyle=none;rounded=0;endArrow=block;endFill=1;endSize=9;strokeWidth=2.2;strokeColor=#647080;exitX=0.0;exitY=0.5;exitPerimeter=0;entryX=0.0;entryY=0.5;entryPerimeter=0;" edge="1" parent="1" source="off" target="boot">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="250" y="1045" as="sourcePoint" />
+            <mxPoint x="590" y="175" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="35" y="1045" />
+              <mxPoint x="35" y="175" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_11" value="" style="html=1;edgeStyle=none;rounded=0;endArrow=block;endFill=1;endSize=9;strokeWidth=2.2;strokeColor=#2563a8;exitX=0.5;exitY=0.0;exitPerimeter=0;entryX=1.0;entryY=0.8333333333333334;entryPerimeter=0;" edge="1" parent="1" source="usb" target="daily">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1150" y="995" as="sourcePoint" />
+            <mxPoint x="1010" y="555" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="1150" y="645" />
+              <mxPoint x="1090" y="645" />
+              <mxPoint x="1090" y="555" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_12" value="" style="html=1;edgeStyle=none;rounded=0;endArrow=block;endFill=1;endSize=9;strokeWidth=2.2;strokeColor=#8054a6;exitX=1.0;exitY=0.5;exitPerimeter=0;entryX=0.5;entryY=0.0;entryPerimeter=0;" edge="1" parent="1" source="usb" target="service">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1350" y="1045" as="sourcePoint" />
+            <mxPoint x="1330" y="300" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="1550" y="1045" />
+              <mxPoint x="1550" y="240" />
+              <mxPoint x="1330" y="240" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="boot" value="&lt;b&gt;Boot / 初始化&lt;/b&gt;&lt;br&gt;先读 RTC AF，再清标志&lt;br&gt;USB：额外 ≤10s 串口校时窗口" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=19;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;rounded=1;arcSize=10;fillColor=#eaf2ff;strokeColor=#2563a8;strokeWidth=1.8;" vertex="1" parent="1">
+          <mxGeometry x="590" y="125" width="420" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="route" value="&lt;b&gt;启动路由&lt;/b&gt;&lt;br&gt;AF=0（非RTC启动）或中键GPIO5&lt;br&gt;或上键GPIO4 → 用户服务" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=19;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;rounded=1;arcSize=10;fillColor=#eaf2ff;strokeColor=#2563a8;strokeWidth=1.8;" vertex="1" parent="1">
+          <mxGeometry x="590" y="290" width="420" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="service" value="&lt;b&gt;用户服务 · 详见 BLE / LAN 图&lt;/b&gt;&lt;br&gt;上键 / 无保存SSID → BLE&lt;br&gt;否则 → STA HTTP&lt;br&gt;BLE失败 → 结束服务、回时钟&lt;br&gt;BLE保存成功 → 先尝试NTP&lt;br&gt;NTP失败也继续 → STA HTTP" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=18;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;rounded=1;arcSize=10;fillColor=#f3ecfa;strokeColor=#8054a6;strokeWidth=1.8;" vertex="1" parent="1">
+          <mxGeometry x="1140" y="300" width="380" height="205" as="geometry" />
+        </mxCell>
+        <mxCell id="daily" value="&lt;b&gt;每日自动校时检查&lt;/b&gt;&lt;br&gt;条件 / 当天尝试锁定：详见 NTP 图" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=19;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;rounded=1;arcSize=10;fillColor=#eaf2ff;strokeColor=#2563a8;strokeWidth=1.8;" vertex="1" parent="1">
+          <mxGeometry x="590" y="480" width="420" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="refresh" value="&lt;b&gt;采样 → 刷屏 → 更新缓存&lt;/b&gt;&lt;br&gt;EPD_Init → ALDO3 3.3V开&lt;br&gt;刷完 EPD_Sleep → ALDO3关&lt;br&gt;校时成功可请求强制全刷" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=18;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;rounded=1;arcSize=10;fillColor=#eaf2ff;strokeColor=#2563a8;strokeWidth=1.8;" vertex="1" parent="1">
+          <mxGeometry x="590" y="655" width="420" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="boundary" value="&lt;b&gt;本轮处理是否已跨整分？&lt;/b&gt;&lt;br&gt;是：立即再次每日检查 / 补刷" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=19;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;rounded=1;arcSize=10;fillColor=#eaf2ff;strokeColor=#2563a8;strokeWidth=1.8;" vertex="1" parent="1">
+          <mxGeometry x="590" y="825" width="420" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="off" value="&lt;b&gt;电池：设下分钟 RTC → PMU关机&lt;/b&gt;&lt;br&gt;WiFi / HTTP / BLE 均关闭&lt;br&gt;等待 RTC / PWR 冷启动" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=18;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;rounded=1;arcSize=10;fillColor=#f0f2f5;strokeColor=#647080;strokeWidth=1.8;" vertex="1" parent="1">
+          <mxGeometry x="250" y="995" width="400" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="usb" value="&lt;b&gt;USB：时钟等待整分&lt;/b&gt;&lt;br&gt;每50ms查键；整分到达后更新&lt;br&gt;WiFi / HTTP / BLE 均关闭" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=18;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;rounded=1;arcSize=10;fillColor=#eaf2ff;strokeColor=#2563a8;strokeWidth=1.8;" vertex="1" parent="1">
+          <mxGeometry x="950" y="995" width="400" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="missing" value="&lt;b&gt;尚未实现（不是转换）&lt;/b&gt;&lt;br&gt;常驻LAN / WiFi掉线重连&lt;br&gt;LAN失败屏幕提示仍欠缺&lt;br&gt;不得据此理解为自动热点" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=18;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;rounded=1;arcSize=10;fillColor=#fff0ee;strokeColor=#b73838;strokeWidth=1.8;" vertex="1" parent="1">
+          <mxGeometry x="85" y="345" width="350" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="clock_note" value="&lt;b&gt;屏幕断电仍保留画面&lt;/b&gt;&lt;br&gt;USB / HTTP / BLE等待：屏幕电源关&lt;br&gt;屏幕断电 ≠ PMU整机关机&lt;br&gt;可与LAN常驻共存（但尚未实现）" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=18;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;rounded=1;arcSize=10;fillColor=#eaf2ff;strokeColor=#2563a8;strokeWidth=1.8;" vertex="1" parent="1">
+          <mxGeometry x="85" y="620" width="350" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_1_label" value="读取启动来源" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="710" y="242" width="180" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_2_label" value="其余：RTC例行启动" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="680" y="419" width="240" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_3_label" value="用户触发" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1016" y="303" width="118" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_4_label" value="结束 / BLE失败" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="584" width="220" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_5_label" value="跳过 / 成功 / 失败" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="680" y="596" width="240" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_6_label" value="检查当前分钟" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="695" y="774" width="210" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_7_label" value="是&lt;br&gt;立即补刷" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="437" y="748" width="106" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_8_label" value="否 · 电池供电" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="473" y="934" width="185" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_9_label" value="否 · USB供电" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="940" y="934" width="180" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_10_label" value="RTC / PWR → 冷启动" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="170" y="159" width="270" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_11_label" value="整分到达&lt;br&gt;先采样按键 / 每日检查" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1035" y="813" width="230" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_12_label" value="检测到按键" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1375" y="224" width="130" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="title" value="&lt;b&gt;MAIN · 冷启动、用户服务与分钟循环&lt;/b&gt;" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=28;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=none;strokeColor=none;align=left;" vertex="1" parent="1">
+          <mxGeometry x="45" y="18" width="830" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="baseline" value="当前实现（基线524453e），非新增固件FSM" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=18;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=none;strokeColor=none;align=left;" vertex="1" parent="1">
+          <mxGeometry x="45" y="61" width="800" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="legend" value="蓝：正常  ·  绿：成功  ·  红：失败&lt;br&gt;紫：BLE  ·  灰：关机  |  实线仅表示已实现转换" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=none;strokeColor=none;align=left;" vertex="1" parent="1">
+          <mxGeometry x="885" y="24" width="670" height="58" as="geometry" />
+        </mxCell>
+        <mxCell id="footer" value="未实机验证 · 基于已核对代码事实；状态为文档抽象，非应用 enum。各子图入口 / 返回均为调用边界。" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=16;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=none;strokeColor=none;align=left;" vertex="1" parent="1">
+          <mxGeometry x="45" y="1110" width="1510" height="26" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="ble" name="BLE · 配网验证、结束与持久化">
+    <mxGraphModel dx="1600" dy="1200" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1200" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="edge_1" value="" style="html=1;edgeStyle=none;rounded=0;endArrow=block;endFill=1;endSize=9;strokeWidth=2.2;strokeColor=#8054a6;exitX=1.0;exitY=0.5;exitPerimeter=0;entryX=0.0;entryY=0.4583333333333333;entryPerimeter=0;" edge="1" parent="1" source="request" target="advertise">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="480" y="205" as="sourcePoint" />
+            <mxPoint x="620" y="205" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_2" value="" style="html=1;edgeStyle=none;rounded=0;endArrow=block;endFill=1;endSize=9;strokeWidth=2.2;strokeColor=#2563a8;exitX=0.5;exitY=1.0;exitPerimeter=0;entryX=0.5555555555555556;entryY=0.0;entryPerimeter=0;" edge="1" parent="1" source="request" target="lan">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="280" y="260" as="sourcePoint" />
+            <mxPoint x="280" y="370" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_3" value="" style="html=1;edgeStyle=none;rounded=0;endArrow=block;endFill=1;endSize=9;strokeWidth=2.2;strokeColor=#8054a6;exitX=0.5;exitY=1.0;exitPerimeter=0;entryX=0.5;entryY=0.0;entryPerimeter=0;" edge="1" parent="1" source="advertise" target="connect">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="840" y="270" as="sourcePoint" />
+            <mxPoint x="840" y="370" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_4" value="" style="html=1;edgeStyle=none;rounded=0;endArrow=block;endFill=1;endSize=9;strokeWidth=2.2;strokeColor=#b73838;exitX=0.0;exitY=0.5;exitPerimeter=0;entryX=0.0;entryY=0.75;entryPerimeter=0;" edge="1" parent="1" source="connect" target="advertise">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="620" y="425" as="sourcePoint" />
+            <mxPoint x="620" y="240" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="535" y="425" />
+              <mxPoint x="535" y="240" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_5" value="" style="html=1;edgeStyle=none;rounded=0;endArrow=block;endFill=1;endSize=9;strokeWidth=2.2;strokeColor=#287747;exitX=0.5;exitY=1.0;exitPerimeter=0;entryX=0.5;entryY=0.0;entryPerimeter=0;" edge="1" parent="1" source="connect" target="verified">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="840" y="480" as="sourcePoint" />
+            <mxPoint x="840" y="590" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_6" value="" style="html=1;edgeStyle=none;rounded=0;endArrow=block;endFill=1;endSize=9;strokeWidth=2.2;strokeColor=#8054a6;exitX=0.5;exitY=1.0;exitPerimeter=0;entryX=0.5;entryY=0.0;entryPerimeter=0;" edge="1" parent="1" source="verified" target="cleanup">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="840" y="700" as="sourcePoint" />
+            <mxPoint x="840" y="800" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_7" value="" style="html=1;edgeStyle=none;rounded=0;endArrow=block;endFill=1;endSize=9;strokeWidth=2.2;strokeColor=#2563a8;exitX=0.5;exitY=1.0;exitPerimeter=0;entryX=0.5;entryY=0.0;entryPerimeter=0;" edge="1" parent="1" source="cleanup" target="save">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="840" y="890" as="sourcePoint" />
+            <mxPoint x="840" y="975" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_8" value="" style="html=1;edgeStyle=none;rounded=0;endArrow=block;endFill=1;endSize=9;strokeWidth=2.2;strokeColor=#287747;exitX=1.0;exitY=0.5;exitPerimeter=0;entryX=0.0;entryY=0.45454545454545453;entryPerimeter=0;" edge="1" parent="1" source="save" target="success">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1060" y="1020" as="sourcePoint" />
+            <mxPoint x="1180" y="1020" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_9" value="" style="html=1;edgeStyle=none;rounded=0;endArrow=block;endFill=1;endSize=9;strokeWidth=2.2;strokeColor=#b73838;exitX=0.0;exitY=0.5;exitPerimeter=0;entryX=1.0;entryY=0.5909090909090909;entryPerimeter=0;" edge="1" parent="1" source="save" target="failure">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="620" y="1020" as="sourcePoint" />
+            <mxPoint x="440" y="865" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="500" y="1020" />
+              <mxPoint x="500" y="865" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_10" value="" style="html=1;edgeStyle=none;rounded=0;endArrow=block;endFill=1;endSize=9;strokeWidth=2.2;strokeColor=#b73838;exitX=0.0;exitY=0.5;exitPerimeter=0;entryX=1.0;entryY=0.4090909090909091;entryPerimeter=0;" edge="1" parent="1" source="cleanup" target="failure">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="620" y="845" as="sourcePoint" />
+            <mxPoint x="440" y="845" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_11" value="" style="html=1;edgeStyle=none;rounded=0;endArrow=block;endFill=1;endSize=9;strokeWidth=2.2;strokeColor=#b73838;exitX=0.5;exitY=0.0;exitPerimeter=0;entryX=0.0;entryY=0.5;entryPerimeter=0;" edge="1" parent="1" source="advertise" target="failure">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="840" y="150" as="sourcePoint" />
+            <mxPoint x="80" y="855" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="840" y="120" />
+              <mxPoint x="35" y="120" />
+              <mxPoint x="35" y="855" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_12" value="" style="html=1;edgeStyle=none;rounded=0;endArrow=block;endFill=1;endSize=9;strokeWidth=2.2;strokeColor=#b73838;exitX=0.0;exitY=0.7727272727272727;exitPerimeter=0;entryX=0.0;entryY=0.5;entryPerimeter=0;" edge="1" parent="1" source="connect" target="failure">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="620" y="455" as="sourcePoint" />
+            <mxPoint x="80" y="855" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="565" y="455" />
+              <mxPoint x="565" y="550" />
+              <mxPoint x="35" y="550" />
+              <mxPoint x="35" y="855" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="request" value="&lt;b&gt;UserRequest / 用户服务入口&lt;/b&gt;&lt;br&gt;上键或无保存SSID：需要BLE&lt;br&gt;否则直接进入LAN" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=18;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;rounded=1;arcSize=10;fillColor=#eaf2ff;strokeColor=#2563a8;strokeWidth=1.8;" vertex="1" parent="1">
+          <mxGeometry x="80" y="150" width="400" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="advertise" value="&lt;b&gt;广播 / 等待凭据&lt;/b&gt;&lt;br&gt;Security1 + 6位PoP码&lt;br&gt;PoP失败不提交WiFi；继续等待" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=19;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;rounded=1;arcSize=10;fillColor=#f3ecfa;strokeColor=#8054a6;strokeWidth=1.8;" vertex="1" parent="1">
+          <mxGeometry x="620" y="150" width="440" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="lan" value="&lt;b&gt;无需BLE → LAN&lt;/b&gt;&lt;br&gt;STA HTTP；详见 LAN 图" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=19;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;rounded=1;arcSize=10;fillColor=#eaf2ff;strokeColor=#2563a8;strokeWidth=1.8;" vertex="1" parent="1">
+          <mxGeometry x="80" y="370" width="360" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="connect" value="&lt;b&gt;候选 WiFi 有限连接&lt;/b&gt;&lt;br&gt;SDK 最多3次连接尝试&lt;br&gt;失败且预算内：重置失败状态" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=19;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;rounded=1;arcSize=10;fillColor=#f3ecfa;strokeColor=#8054a6;strokeWidth=1.8;" vertex="1" parent="1">
+          <mxGeometry x="620" y="370" width="440" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="verified" value="&lt;b&gt;取得IP / CRED_SUCCESS&lt;/b&gt;&lt;br&gt;锁存 success；后续FAIL不清零&lt;br&gt;仅验证成功 ≠ 已保存 clock_net" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=18;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;rounded=1;arcSize=10;fillColor=#e9f6ed;strokeColor=#287747;strokeWidth=1.8;" vertex="1" parent="1">
+          <mxGeometry x="620" y="590" width="440" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="cleanup" value="&lt;b&gt;结束配网会话&lt;/b&gt;&lt;br&gt;停止BLE；清除SDK临时WiFi数据" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=18;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;rounded=1;arcSize=10;fillColor=#f3ecfa;strokeColor=#8054a6;strokeWidth=1.8;" vertex="1" parent="1">
+          <mxGeometry x="620" y="800" width="440" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="save" value="&lt;b&gt;持久化候选凭据&lt;/b&gt;&lt;br&gt;写入 clock_net" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=19;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;rounded=1;arcSize=10;fillColor=#eaf2ff;strokeColor=#2563a8;strokeWidth=1.8;" vertex="1" parent="1">
+          <mxGeometry x="620" y="975" width="440" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="success" value="&lt;b&gt;保存成功 → run_management&lt;/b&gt;&lt;br&gt;先尝试NTP（失败也继续）&lt;br&gt;再进入 STA HTTP / LAN" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=18;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;rounded=1;arcSize=10;fillColor=#e9f6ed;strokeColor=#287747;strokeWidth=1.8;" vertex="1" parent="1">
+          <mxGeometry x="1180" y="970" width="350" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="failure" value="&lt;b&gt;失败结束 → 返回时钟&lt;/b&gt;&lt;br&gt;未验证WiFi失败：不写clock_net&lt;br&gt;初始化 / 清理错误：保留旧配置&lt;br&gt;NVS保存失败：可能部分写入" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;rounded=1;arcSize=10;fillColor=#fff0ee;strokeColor=#b73838;strokeWidth=1.8;" vertex="1" parent="1">
+          <mxGeometry x="80" y="800" width="360" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="disconnect_note" value="&lt;b&gt;网页断开 ≠ 取消&lt;/b&gt;&lt;br&gt;已提交的配网工作仍可能保存成功&lt;br&gt;不画“网页断开 → 失败”转换" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;rounded=1;arcSize=10;fillColor=#eaf2ff;strokeColor=#2563a8;strokeWidth=1.8;" vertex="1" parent="1">
+          <mxGeometry x="80" y="570" width="360" height="115" as="geometry" />
+        </mxCell>
+        <mxCell id="sdk_note" value="&lt;b&gt;SDK内部过程为抽象状态&lt;/b&gt;&lt;br&gt;CRED_SUCCESS / END 为SDK事件&lt;br&gt;取得IP只锁存验证结果&lt;br&gt;只有后续写 clock_net 才算保存成功" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;rounded=1;arcSize=10;fillColor=#eaf2ff;strokeColor=#2563a8;strokeWidth=1.8;" vertex="1" parent="1">
+          <mxGeometry x="1180" y="390" width="350" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="deadline_note" value="&lt;b&gt;活动deadline = 函数入口 + 295s&lt;/b&gt;&lt;br&gt;预留5s清理；并非硬实时期限&lt;br&gt;已锁存success时到deadline&lt;br&gt;仍可能清理后保存新配置" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;rounded=1;arcSize=10;fillColor=#f3ecfa;strokeColor=#8054a6;strokeWidth=1.8;" vertex="1" parent="1">
+          <mxGeometry x="1180" y="590" width="350" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="persistence_note" value="&lt;b&gt;持久化边界：非原子事务&lt;/b&gt;&lt;br&gt;network_save_config 顺序写多个key&lt;br&gt;NVS保存失败可能已部分写入&lt;br&gt;不保证回滚 / 保留完整旧配置" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;rounded=1;arcSize=10;fillColor=#fff0ee;strokeColor=#b73838;strokeWidth=1.8;" vertex="1" parent="1">
+          <mxGeometry x="1180" y="790" width="350" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_1_label" value="上键 / 无SSID" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="483" y="164" width="134" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_2_label" value="已有SSID且非上键" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="160" y="299" width="240" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_3_label" value="安全握手通过并提交凭据" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="725" y="304" width="230" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_4_label" value="失败且预算内&lt;br&gt;可重填凭据" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="469" y="313" width="132" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_5_label" value="取得IP；验证成功" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="733" y="519" width="215" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_6_label" value="GetStatus触发END / SDK自动结束（默认约30s）&lt;br&gt;或已锁存success后到活动deadline" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="625" y="723" width="430" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_7_label" value="清理完成后才写入" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="705" y="916" width="270" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_8_label" value="保存成功" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1068" y="1004" width="105" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_9_label" value="保存失败" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="430" y="939" width="140" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_10_label" value="清理错误" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="453" y="802" width="155" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_11_label" value="未验证成功且到活动deadline / 初始化错误" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="75" y="104" width="690" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_12_label" value="未验证成功且到活动deadline" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="60" y="534" width="480" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="title" value="&lt;b&gt;BLE · 配网验证、结束与持久化&lt;/b&gt;" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=28;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=none;strokeColor=none;align=left;" vertex="1" parent="1">
+          <mxGeometry x="45" y="18" width="830" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="baseline" value="当前实现（基线524453e），非新增固件FSM" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=18;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=none;strokeColor=none;align=left;" vertex="1" parent="1">
+          <mxGeometry x="45" y="61" width="800" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="legend" value="蓝：正常  ·  绿：成功  ·  红：失败&lt;br&gt;紫：BLE  ·  灰：关机  |  实线仅表示已实现转换" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=none;strokeColor=none;align=left;" vertex="1" parent="1">
+          <mxGeometry x="885" y="24" width="670" height="58" as="geometry" />
+        </mxCell>
+        <mxCell id="footer" value="未实机验证 · 基于已核对代码事实；状态为文档抽象，非应用 enum。各子图入口 / 返回均为调用边界。" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=16;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=none;strokeColor=none;align=left;" vertex="1" parent="1">
+          <mxGeometry x="45" y="1160" width="1510" height="26" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="lan" name="LAN · 临时 STA HTTP 管理窗口">
+    <mxGraphModel dx="1600" dy="1160" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1160" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="edge_1" value="" style="html=1;edgeStyle=none;rounded=0;endArrow=block;endFill=1;endSize=9;strokeWidth=2.2;strokeColor=#2563a8;exitX=1.0;exitY=0.5;exitPerimeter=0;entryX=0.0;entryY=0.5;entryPerimeter=0;" edge="1" parent="1" source="entry" target="sta">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="500" y="205" as="sourcePoint" />
+            <mxPoint x="600" y="205" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_2" value="" style="html=1;edgeStyle=none;rounded=0;endArrow=block;endFill=1;endSize=9;strokeWidth=2.2;strokeColor=#b73838;exitX=1.0;exitY=0.5;exitPerimeter=0;entryX=0.0;entryY=0.5;entryPerimeter=0;" edge="1" parent="1" source="sta" target="failure">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1030" y="205" as="sourcePoint" />
+            <mxPoint x="1150" y="205" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_3" value="" style="html=1;edgeStyle=none;rounded=0;endArrow=block;endFill=1;endSize=9;strokeWidth=2.2;strokeColor=#287747;exitX=0.5;exitY=1.0;exitPerimeter=0;entryX=0.5;entryY=0.0;entryPerimeter=0;" edge="1" parent="1" source="sta" target="http">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="815" y="260" as="sourcePoint" />
+            <mxPoint x="815" y="420" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_4" value="" style="html=1;edgeStyle=none;rounded=0;endArrow=block;endFill=1;endSize=9;strokeWidth=2.2;strokeColor=#b73838;exitX=1.0;exitY=0.5;exitPerimeter=0;entryX=1.0;entryY=0.6111111111111112;entryPerimeter=0;" edge="1" parent="1" source="failure" target="clock">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1500" y="205" as="sourcePoint" />
+            <mxPoint x="460" y="1045" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="1550" y="205" />
+              <mxPoint x="1550" y="1045" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_5" value="" style="html=1;edgeStyle=none;rounded=0;endArrow=block;endFill=1;endSize=9;strokeWidth=2.2;strokeColor=#2563a8;exitX=1.0;exitY=0.25;exitPerimeter=0;entryX=0.5;entryY=0.0;entryPerimeter=0;" edge="1" parent="1" source="http" target="manual">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1030" y="455" as="sourcePoint" />
+            <mxPoint x="1330" y="420" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="1090" y="455" />
+              <mxPoint x="1090" y="375" />
+              <mxPoint x="1330" y="375" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_6" value="" style="html=1;edgeStyle=none;rounded=0;endArrow=block;endFill=1;endSize=9;strokeWidth=2.2;strokeColor=#2563a8;exitX=0.0;exitY=0.75;exitPerimeter=0;entryX=1.0;entryY=0.75;entryPerimeter=0;" edge="1" parent="1" source="manual" target="http">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1160" y="525" as="sourcePoint" />
+            <mxPoint x="1030" y="525" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_7" value="" style="html=1;edgeStyle=none;rounded=0;endArrow=block;endFill=1;endSize=9;strokeWidth=2.2;strokeColor=#2563a8;exitX=0.0;exitY=0.25;exitPerimeter=0;entryX=0.11627906976744186;entryY=1.0;entryPerimeter=0;" edge="1" parent="1" source="http" target="http">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="600" y="455" as="sourcePoint" />
+            <mxPoint x="650" y="560" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="520" y="455" />
+              <mxPoint x="520" y="610" />
+              <mxPoint x="650" y="610" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_8" value="" style="html=1;edgeStyle=none;rounded=0;endArrow=block;endFill=1;endSize=9;strokeWidth=2.2;strokeColor=#b73838;exitX=0.5;exitY=1.0;exitPerimeter=0;entryX=0.5;entryY=0.0;entryPerimeter=0;" edge="1" parent="1" source="http" target="offline">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="815" y="560" as="sourcePoint" />
+            <mxPoint x="815" y="740" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_9" value="" style="html=1;edgeStyle=none;rounded=0;endArrow=block;endFill=1;endSize=9;strokeWidth=2.2;strokeColor=#b73838;exitX=0.5;exitY=1.0;exitPerimeter=0;entryX=1.0;entryY=0.49523809523809526;entryPerimeter=0;" edge="1" parent="1" source="manual" target="offline">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1330" y="560" as="sourcePoint" />
+            <mxPoint x="1030" y="792" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="1330" y="792" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_10" value="" style="html=1;edgeStyle=none;rounded=0;endArrow=block;endFill=1;endSize=9;strokeWidth=2.2;strokeColor=#2563a8;exitX=0.0;exitY=0.6071428571428571;exitPerimeter=0;entryX=0.5;entryY=0.0;entryPerimeter=0;" edge="1" parent="1" source="http" target="cleanup">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="600" y="505" as="sourcePoint" />
+            <mxPoint x="280" y="740" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="485" y="505" />
+              <mxPoint x="485" y="690" />
+              <mxPoint x="280" y="690" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_11" value="" style="html=1;edgeStyle=none;rounded=0;endArrow=block;endFill=1;endSize=9;strokeWidth=2.2;strokeColor=#2563a8;exitX=0.0;exitY=0.49523809523809526;exitPerimeter=0;entryX=1.0;entryY=0.49523809523809526;entryPerimeter=0;" edge="1" parent="1" source="offline" target="cleanup">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="600" y="792" as="sourcePoint" />
+            <mxPoint x="460" y="792" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_12" value="" style="html=1;edgeStyle=none;rounded=0;endArrow=block;endFill=1;endSize=9;strokeWidth=2.2;strokeColor=#2563a8;exitX=0.5;exitY=1.0;exitPerimeter=0;entryX=0.5;entryY=0.0;entryPerimeter=0;" edge="1" parent="1" source="cleanup" target="clock">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="280" y="845" as="sourcePoint" />
+            <mxPoint x="280" y="990" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="entry" value="&lt;b&gt;用户服务 / BLE成功后的入口&lt;/b&gt;&lt;br&gt;不是常驻LAN；不自启动热点" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=19;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;rounded=1;arcSize=10;fillColor=#eaf2ff;strokeColor=#2563a8;strokeWidth=1.8;" vertex="1" parent="1">
+          <mxGeometry x="100" y="150" width="400" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="sta" value="&lt;b&gt;STA 连接 ≤15s&lt;/b&gt;&lt;br&gt;或复用已经连接的STA" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=19;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;rounded=1;arcSize=10;fillColor=#eaf2ff;strokeColor=#2563a8;strokeWidth=1.8;" vertex="1" parent="1">
+          <mxGeometry x="600" y="150" width="430" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="failure" value="&lt;b&gt;连接失败&lt;/b&gt;&lt;br&gt;记录日志；关闭WiFi&lt;br&gt;屏幕失败提示仍欠缺" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=18;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;rounded=1;arcSize=10;fillColor=#fff0ee;strokeColor=#b73838;strokeWidth=1.8;" vertex="1" parent="1">
+          <mxGeometry x="1150" y="150" width="350" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="http" value="&lt;b&gt;HTTP 启动 / 活动（临时密码）&lt;/b&gt;&lt;br&gt;GET /api/status：不延长idle&lt;br&gt;GET / 和 POST：延长idle&lt;br&gt;提供状态 / 手动NTP / exit" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=18;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;rounded=1;arcSize=10;fillColor=#eaf2ff;strokeColor=#2563a8;strokeWidth=1.8;" vertex="1" parent="1">
+          <mxGeometry x="600" y="420" width="430" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="manual" value="&lt;b&gt;HTTP 手动校时&lt;/b&gt;&lt;br&gt;内部STA最多15s + NTP≤10s&lt;br&gt;成功 / 失败均回HTTP" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=18;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;rounded=1;arcSize=10;fillColor=#eaf2ff;strokeColor=#2563a8;strokeWidth=1.8;" vertex="1" parent="1">
+          <mxGeometry x="1160" y="420" width="340" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="offline" value="&lt;b&gt;WiFi断线 → 网络不可达&lt;/b&gt;&lt;br&gt;HTTP任务仍在；没有自动重连&lt;br&gt;仍等待原idle / 总时限清理" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=18;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;rounded=1;arcSize=10;fillColor=#fff0ee;strokeColor=#b73838;strokeWidth=1.8;" vertex="1" parent="1">
+          <mxGeometry x="600" y="740" width="430" height="105" as="geometry" />
+        </mxCell>
+        <mxCell id="cleanup" value="&lt;b&gt;结束管理窗口&lt;/b&gt;&lt;br&gt;停止HTTP + 关闭WiFi" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=19;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;rounded=1;arcSize=10;fillColor=#f0f2f5;strokeColor=#647080;strokeWidth=1.8;" vertex="1" parent="1">
+          <mxGeometry x="100" y="740" width="360" height="105" as="geometry" />
+        </mxCell>
+        <mxCell id="clock" value="&lt;b&gt;返回时钟调用方&lt;/b&gt;&lt;br&gt;MAIN：每日检查 → 刷屏" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=19;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;rounded=1;arcSize=10;fillColor=#eaf2ff;strokeColor=#2563a8;strokeWidth=1.8;" vertex="1" parent="1">
+          <mxGeometry x="100" y="990" width="360" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="limits" value="&lt;b&gt;窗口限额&lt;/b&gt;&lt;br&gt;idle 5min 或总时长15min&lt;br&gt;POST exit 可提前结束" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=18;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;rounded=1;arcSize=10;fillColor=#eaf2ff;strokeColor=#2563a8;strokeWidth=1.8;" vertex="1" parent="1">
+          <mxGeometry x="80" y="355" width="360" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="offline_note" value="&lt;b&gt;未实现：常驻LAN / 掉线自动重连&lt;/b&gt;&lt;br&gt;不可达不是退出；任务等待限额到期" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;rounded=1;arcSize=10;fillColor=#fff0ee;strokeColor=#b73838;strokeWidth=1.8;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="910" width="400" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_1_label" value="进入" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="505" y="164" width="90" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_2_label" value="失败" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1040" y="189" width="100" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_3_label" value="得到IP / 复用连接&lt;br&gt;每次生成临时HTTP密码" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="650" y="313" width="330" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_4_label" value="连接失败后直接返回时钟" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="970" y="1029" width="300" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_5_label" value="POST 手动NTP" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1155" y="359" width="250" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_6_label" value="成功 / 失败" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1034" y="509" width="122" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_7_label" value="GET请求：按节点规则" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="525" y="594" width="250" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_8_label" value="WiFi断线" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="720" y="634" width="190" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_9_label" value="若掉线：网络不可达" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1195" y="634" width="270" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_10_label" value="exit / idle 5min / 总15min&lt;br&gt;或HTTP启动 / 注册失败" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="105" y="638" width="350" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_11_label" value="idle / 上限" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="466" y="776" width="128" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_12_label" value="无线服务已关闭" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="170" y="902" width="220" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="title" value="&lt;b&gt;LAN · 临时 STA HTTP 管理窗口&lt;/b&gt;" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=28;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=none;strokeColor=none;align=left;" vertex="1" parent="1">
+          <mxGeometry x="45" y="18" width="830" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="baseline" value="当前实现（基线524453e），非新增固件FSM" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=18;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=none;strokeColor=none;align=left;" vertex="1" parent="1">
+          <mxGeometry x="45" y="61" width="800" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="legend" value="蓝：正常  ·  绿：成功  ·  红：失败&lt;br&gt;紫：BLE  ·  灰：关机  |  实线仅表示已实现转换" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=none;strokeColor=none;align=left;" vertex="1" parent="1">
+          <mxGeometry x="885" y="24" width="670" height="58" as="geometry" />
+        </mxCell>
+        <mxCell id="footer" value="未实机验证 · 基于已核对代码事实；状态为文档抽象，非应用 enum。各子图入口 / 返回均为调用边界。" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=16;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=none;strokeColor=none;align=left;" vertex="1" parent="1">
+          <mxGeometry x="45" y="1120" width="1510" height="26" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="ntp" name="NTP · 每日自动校时与当天尝试锁定">
+    <mxGraphModel dx="1600" dy="1160" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1160" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="edge_1" value="" style="html=1;edgeStyle=none;rounded=0;endArrow=block;endFill=1;endSize=9;strokeWidth=2.2;strokeColor=#2563a8;exitX=1.0;exitY=0.5;exitPerimeter=0;entryX=0.0;entryY=0.3793103448275862;entryPerimeter=0;" edge="1" parent="1" source="entry" target="gate">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="440" y="205" as="sourcePoint" />
+            <mxPoint x="590" y="205" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_2" value="" style="html=1;edgeStyle=none;rounded=0;endArrow=block;endFill=1;endSize=9;strokeWidth=2.2;strokeColor=#2563a8;exitX=0.0;exitY=0.6551724137931034;exitPerimeter=0;entryX=0.5;entryY=0.0;entryPerimeter=0;" edge="1" parent="1" source="gate" target="skip">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="590" y="245" as="sourcePoint" />
+            <mxPoint x="270" y="420" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="490" y="245" />
+              <mxPoint x="490" y="360" />
+              <mxPoint x="270" y="360" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_3" value="" style="html=1;edgeStyle=none;rounded=0;endArrow=block;endFill=1;endSize=9;strokeWidth=2.2;strokeColor=#2563a8;exitX=0.5;exitY=1.0;exitPerimeter=0;entryX=0.5;entryY=0.0;entryPerimeter=0;" edge="1" parent="1" source="gate" target="record">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="810" y="295" as="sourcePoint" />
+            <mxPoint x="810" y="405" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_4" value="" style="html=1;edgeStyle=none;rounded=0;endArrow=block;endFill=1;endSize=9;strokeWidth=2.2;strokeColor=#b73838;exitX=0.0;exitY=0.5;exitPerimeter=0;entryX=1.0;entryY=0.5833333333333334;entryPerimeter=0;" edge="1" parent="1" source="record" target="skip">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="590" y="455" as="sourcePoint" />
+            <mxPoint x="440" y="490" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="515" y="455" />
+              <mxPoint x="515" y="490" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_5" value="" style="html=1;edgeStyle=none;rounded=0;endArrow=block;endFill=1;endSize=9;strokeWidth=2.2;strokeColor=#2563a8;exitX=0.5;exitY=1.0;exitPerimeter=0;entryX=0.5;entryY=0.0;entryPerimeter=0;" edge="1" parent="1" source="record" target="sta">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="810" y="505" as="sourcePoint" />
+            <mxPoint x="810" y="615" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_6" value="" style="html=1;edgeStyle=none;rounded=0;endArrow=block;endFill=1;endSize=9;strokeWidth=2.2;strokeColor=#287747;exitX=0.5;exitY=1.0;exitPerimeter=0;entryX=0.5;entryY=0.0;entryPerimeter=0;" edge="1" parent="1" source="sta" target="ntp">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="810" y="705" as="sourcePoint" />
+            <mxPoint x="810" y="810" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_7" value="" style="html=1;edgeStyle=none;rounded=0;endArrow=block;endFill=1;endSize=9;strokeWidth=2.2;strokeColor=#b73838;exitX=1.0;exitY=0.5;exitPerimeter=0;entryX=1.0;entryY=0.5;entryPerimeter=0;" edge="1" parent="1" source="sta" target="cleanup">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1030" y="660" as="sourcePoint" />
+            <mxPoint x="1500" y="1060" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="1550" y="660" />
+              <mxPoint x="1550" y="1060" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_8" value="" style="html=1;edgeStyle=none;rounded=0;endArrow=block;endFill=1;endSize=9;strokeWidth=2.2;strokeColor=#b73838;exitX=1.0;exitY=0.6666666666666666;exitPerimeter=0;entryX=0.0;entryY=0.5;entryPerimeter=0;" edge="1" parent="1" source="ntp" target="cleanup">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1030" y="870" as="sourcePoint" />
+            <mxPoint x="1130" y="1060" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="1080" y="870" />
+              <mxPoint x="1080" y="1060" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_9" value="" style="html=1;edgeStyle=none;rounded=0;endArrow=block;endFill=1;endSize=9;strokeWidth=2.2;strokeColor=#287747;exitX=1.0;exitY=0.2777777777777778;exitPerimeter=0;entryX=0.0;entryY=0.2916666666666667;entryPerimeter=0;" edge="1" parent="1" source="ntp" target="success">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1030" y="835" as="sourcePoint" />
+            <mxPoint x="1130" y="835" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_10" value="" style="html=1;edgeStyle=none;rounded=0;endArrow=block;endFill=1;endSize=9;strokeWidth=2.2;strokeColor=#287747;exitX=0.5;exitY=1.0;exitPerimeter=0;entryX=0.5;entryY=0.0;entryPerimeter=0;" edge="1" parent="1" source="success" target="cleanup">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1315" y="920" as="sourcePoint" />
+            <mxPoint x="1315" y="1020" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_11" value="" style="html=1;edgeStyle=none;rounded=0;endArrow=block;endFill=1;endSize=9;strokeWidth=2.2;strokeColor=#2563a8;exitX=0.0;exitY=0.5;exitPerimeter=0;entryX=1.0;entryY=0.5555555555555556;entryPerimeter=0;" edge="1" parent="1" source="cleanup" target="return">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1130" y="1060" as="sourcePoint" />
+            <mxPoint x="440" y="1060" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_12" value="" style="html=1;edgeStyle=none;rounded=0;endArrow=block;endFill=1;endSize=9;strokeWidth=2.2;strokeColor=#647080;exitX=0.5;exitY=1.0;exitPerimeter=0;entryX=0.0;entryY=0.5;entryPerimeter=0;" edge="1" parent="1" source="skip" target="return">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="270" y="540" as="sourcePoint" />
+            <mxPoint x="100" y="1055" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="65" y="540" />
+              <mxPoint x="65" y="1055" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="entry" value="&lt;b&gt;每分钟时钟流程进入&lt;/b&gt;&lt;br&gt;MAIN：每日检查调用点" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=19;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;rounded=1;arcSize=10;fillColor=#eaf2ff;strokeColor=#2563a8;strokeWidth=1.8;" vertex="1" parent="1">
+          <mxGeometry x="100" y="150" width="340" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="gate" value="&lt;b&gt;自动校时条件：必须全部满足&lt;/b&gt;&lt;br&gt;有SSID &amp;amp;&amp;amp; RTC有效&lt;br&gt;hour ≥ 配置小时 &amp;amp;&amp;amp; 当天未尝试&lt;br&gt;默认8点；不满足则跳过无线" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=18;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;rounded=1;arcSize=10;fillColor=#eaf2ff;strokeColor=#2563a8;strokeWidth=1.8;" vertex="1" parent="1">
+          <mxGeometry x="590" y="150" width="440" height="145" as="geometry" />
+        </mxCell>
+        <mxCell id="skip" value="&lt;b&gt;不联网，直接返回&lt;/b&gt;&lt;br&gt;条件不满足：skip&lt;br&gt;或 last_attempt_day 保存失败" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;rounded=1;arcSize=10;fillColor=#f0f2f5;strokeColor=#647080;strokeWidth=1.8;" vertex="1" parent="1">
+          <mxGeometry x="100" y="420" width="340" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="record" value="&lt;b&gt;先写 NVS：last_attempt_day&lt;/b&gt;&lt;br&gt;保存成功才允许联网" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=19;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;rounded=1;arcSize=10;fillColor=#eaf2ff;strokeColor=#2563a8;strokeWidth=1.8;" vertex="1" parent="1">
+          <mxGeometry x="590" y="405" width="440" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="sta" value="&lt;b&gt;STA连接 ≤15s&lt;/b&gt;&lt;br&gt;失败不重试当天自动校时" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=19;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;rounded=1;arcSize=10;fillColor=#eaf2ff;strokeColor=#2563a8;strokeWidth=1.8;" vertex="1" parent="1">
+          <mxGeometry x="590" y="615" width="440" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="ntp" value="&lt;b&gt;NTP请求 ≤10s&lt;/b&gt;&lt;br&gt;失败不重试当天自动校时" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=19;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;rounded=1;arcSize=10;fillColor=#eaf2ff;strokeColor=#2563a8;strokeWidth=1.8;" vertex="1" parent="1">
+          <mxGeometry x="590" y="810" width="440" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="success" value="&lt;b&gt;成功：写RTC&lt;/b&gt;&lt;br&gt;尝试保存 last_sync / 校正后日期&lt;br&gt;NVS失败仅告警；仍请求强制全刷" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=18;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;rounded=1;arcSize=10;fillColor=#e9f6ed;strokeColor=#287747;strokeWidth=1.8;" vertex="1" parent="1">
+          <mxGeometry x="1130" y="800" width="370" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="cleanup" value="&lt;b&gt;关闭WiFi&lt;/b&gt;&lt;br&gt;自动校时结束" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=19;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;rounded=1;arcSize=10;fillColor=#f0f2f5;strokeColor=#647080;strokeWidth=1.8;" vertex="1" parent="1">
+          <mxGeometry x="1130" y="1020" width="370" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="return" value="&lt;b&gt;返回时钟调用方&lt;/b&gt;&lt;br&gt;继续采样 / 刷屏" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=19;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;rounded=1;arcSize=10;fillColor=#eaf2ff;strokeColor=#2563a8;strokeWidth=1.8;" vertex="1" parent="1">
+          <mxGeometry x="100" y="1010" width="340" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="invalid_note" value="&lt;b&gt;待设计缺口（不是已实现分支）&lt;/b&gt;&lt;br&gt;RTC无效会一直skip自动校时&lt;br&gt;本图不画自动修复 / 强制联网" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=18;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;rounded=1;arcSize=10;fillColor=#fff0ee;strokeColor=#b73838;strokeWidth=1.8;" vertex="1" parent="1">
+          <mxGeometry x="1140" y="150" width="380" height="145" as="geometry" />
+        </mxCell>
+        <mxCell id="attempt_note" value="&lt;b&gt;当天尝试锁定&lt;/b&gt;&lt;br&gt;先记录尝试日，再尝试联网&lt;br&gt;STA / NTP失败：当天不自动再试&lt;br&gt;手动NTP不走本图每日门槛" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;rounded=1;arcSize=10;fillColor=#eaf2ff;strokeColor=#2563a8;strokeWidth=1.8;" vertex="1" parent="1">
+          <mxGeometry x="100" y="650" width="340" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_1_label" value="每日检查" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="445" y="164" width="140" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_2_label" value="任一条件不满足" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="195" y="344" width="270" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_3_label" value="条件全部满足" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="705" y="334" width="210" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_4_label" value="NVS保存失败" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="446" y="474" width="138" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_5_label" value="NVS保存成功" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="700" y="544" width="220" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_6_label" value="连接成功" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="720" y="741" width="180" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_7_label" value="连接失败 / 超时" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1160" y="644" width="300" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_8_label" value="NTP失败&lt;br&gt;/ 超时" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1005" y="938" width="150" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_9_label" value="成功" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1034" y="794" width="92" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_10_label" value="RTC已更新&lt;br&gt;元数据写失败仅告警" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1190" y="943" width="250" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_11_label" value="成功或失败均关闭WiFi后返回" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="640" y="1044" width="300" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_12_label" value="不联网；保持时钟流程" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=#ffffff;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="110" y="884" width="280" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="title" value="&lt;b&gt;NTP · 每日自动校时与当天尝试锁定&lt;/b&gt;" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=28;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=none;strokeColor=none;align=left;" vertex="1" parent="1">
+          <mxGeometry x="45" y="18" width="830" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="baseline" value="当前实现（基线524453e），非新增固件FSM" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=18;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=none;strokeColor=none;align=left;" vertex="1" parent="1">
+          <mxGeometry x="45" y="61" width="800" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="legend" value="蓝：正常  ·  绿：成功  ·  红：失败&lt;br&gt;紫：BLE  ·  灰：关机  |  实线仅表示已实现转换" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=17;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=none;strokeColor=none;align=left;" vertex="1" parent="1">
+          <mxGeometry x="885" y="24" width="670" height="58" as="geometry" />
+        </mxCell>
+        <mxCell id="footer" value="未实机验证 · 基于已核对代码事实；状态为文档抽象，非应用 enum。各子图入口 / 返回均为调用边界。" style="html=1;whiteSpace=wrap;fontFamily=Noto Sans CJK SC, Microsoft YaHei, PingFang SC, sans-serif;fontSize=16;fontColor=#172b44;align=center;verticalAlign=middle;spacing=0;spacingTop=0;spacingBottom=0;overflow=hidden;text;fillColor=none;strokeColor=none;align=left;" vertex="1" parent="1">
+          <mxGeometry x="45" y="1120" width="1510" height="26" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
