@@ -7,6 +7,8 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/usb_serial_jtag.h"
+#include "driver/gpio.h"
+#include "nvs_flash.h"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "esp_timer.h"
@@ -17,6 +19,28 @@
 #include "sdcard_bsp.h"
 #include "display.h"
 #include "rtc.h"
+#include "network.h"
+#include "admin.h"
+
+#define MANAGEMENT_BUTTON GPIO_NUM_5 // Dial center, active low (Waveshare pinout).
+
+static bool management_button_pressed(void)
+{
+    static bool held;
+    bool down = gpio_get_level(MANAGEMENT_BUTTON) == 0;
+    bool pressed = down && !held;
+    held = down;
+    return pressed;
+}
+
+static void run_management(void)
+{
+    if (admin_run()) {
+        esp_err_t result = network_sync_now();
+        ESP_LOGW("clock", "New Wi-Fi configuration sync: %s", esp_err_to_name(result));
+        network_stop();
+    }
+}
 
 // Only USB-powered starts wait for a host; battery starts never wait here.
 static bool usb_set_time(void)
@@ -59,11 +83,21 @@ void app_main(void)
     int64_t started = esp_timer_get_time();
     setenv("TZ", CONFIG_CLOCK_TIMEZONE, 1);
     tzset();
+    ESP_ERROR_CHECK(nvs_flash_init());
     i2c_master_init();
     axp_init();
+    bool scheduled_start = rtc_alarm_pending();
     rtc_init();
+    gpio_config_t button = {
+        .pin_bit_mask = 1ULL << MANAGEMENT_BUTTON, .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_ENABLE, .intr_type = GPIO_INTR_DISABLE,
+    };
+    ESP_ERROR_CHECK(gpio_config(&button));
+    network_init();
+    bool enter_management = !scheduled_start || management_button_pressed();
     bool force_full = false;
     if (get_usb_connected()) force_full = usb_set_time();
+    enter_management |= management_button_pressed();
     i2c_shtc3_init();
 
     esp_err_t mounted = cache_mount();
@@ -72,8 +106,17 @@ void app_main(void)
     uint8_t *frame = heap_caps_malloc(CLOCK_FRAME_SIZE, MALLOC_CAP_SPIRAM);
     assert(frame);
     epaper_port_init();
+    if (enter_management) {
+        run_management();
+        force_full = true;
+    }
 
     for (;;) {
+        if (management_button_pressed()) {
+            run_management();
+            force_full = true;
+        }
+        if (network_daily_sync()) force_full = true;
         struct tm now;
         bool valid = rtc_read(&now);
         // Preserve the vendor's old-frame restore + new-frame partial refresh.
@@ -111,9 +154,17 @@ void app_main(void)
             // shutdown should cut power; never spin if hardware does not comply.
             vTaskDelay(portMAX_DELAY);
         }
-        // With USB attached, keep the same firmware running rather than repeatedly
-        // requesting PMU shutdown on an externally powered board.
-        vTaskDelay(pdMS_TO_TICKS((60 - after.tm_sec) * 1000));
+        // Only USB mode stays awake and polls the dial key; battery mode has
+        // already powered off. PWR manually starts management from power-off.
+        int64_t deadline = esp_timer_get_time() + (60 - after.tm_sec) * 1000000LL;
+        while (esp_timer_get_time() < deadline) {
+            if (management_button_pressed()) {
+                run_management();
+                force_full = true;
+                break;
+            }
+            vTaskDelay(pdMS_TO_TICKS(50));
+        }
         started = esp_timer_get_time();
     }
 }

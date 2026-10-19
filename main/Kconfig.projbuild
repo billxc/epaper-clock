@@ -4,5 +4,17 @@ config CLOCK_TIMEZONE
     default "CST-8"
     help
         RTC stores local time. Default is UTC+8 (China). After changing this,
-        set the clock again over USB. No network or Wi-Fi credentials needed.
+        set the clock again over USB or the Wi-Fi management page.
+
+config CLOCK_SYNC_HOUR
+    int "Daily NTP synchronization hour (local time)"
+    range 0 23
+    default 8
+    help
+        Connect once per local day at or after this hour. A failed scheduled
+        attempt is not retried every minute; use the management page to retry.
+
+config CLOCK_NTP_SERVER
+    string "NTP server"
+    default "ntp.aliyun.com"
 endmenu

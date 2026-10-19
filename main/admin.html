@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>电子纸时钟管理</title>
+<style>
+:root{color-scheme:light dark;font-family:system-ui,sans-serif;line-height:1.6}body{max-width:760px;margin:auto;padding:20px}h1{font-size:1.7rem}section{border:1px solid #8887;border-radius:12px;padding:18px;margin:18px 0}.notice{border-left:4px solid #b77900;padding:12px;background:#bb880015}dl{display:grid;grid-template-columns:7em 1fr;gap:10px}dt{font-weight:bold}dd{margin:0;overflow-wrap:anywhere}label{display:block;margin-top:12px}input,button{font:inherit;box-sizing:border-box;min-height:44px}input{width:100%;padding:8px;border:1px solid #888;border-radius:6px}button{padding:8px 16px;cursor:pointer;border:1px solid #888;border-radius:6px}button:disabled{cursor:wait;opacity:.6}.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}small{display:block;opacity:.8}#message{white-space:pre-wrap;overflow-wrap:anywhere;min-height:2em}@media(max-width:440px){body{padding:12px}section{padding:12px}dl{grid-template-columns:6em 1fr}.actions button{width:100%}}
+</style>
+</head>
+<body>
+<h1>电子纸时钟管理</h1>
+<p class="notice">仅用于可信本地网络配置：HTTP 和 Basic 认证不加密，不适合公网或不可信网络。用户名为 <b>admin</b>，密码为本次屏幕显示的随机 AP 密码（不是已保存的 Wi-Fi 密码）。请勿将此服务暴露到公网。</p>
+<p>无操作 5 分钟自动退出，单次管理最多 15 分钟。下方每 10 秒自动更新状态，不延长管理时间。</p>
+<section aria-labelledby="status-title">
+<h2 id="status-title">当前状态</h2>
+<dl>
+<dt>RTC 时间</dt><dd id="rtc">读取中…</dd>
+<dt>RTC 有效</dt><dd id="valid">—</dd>
+<dt>STA 连接</dt><dd id="connected">—</dd>
+<dt>STA 地址</dt><dd id="ip">—</dd>
+<dt>配置的 SSID</dt><dd id="ssid">—</dd>
+<dt>上次校时</dt><dd id="sync">—</dd>
+</dl>
+</section>
+<section aria-labelledby="wifi-title">
+<h2 id="wifi-title">Wi-Fi 配置</h2>
+<form id="config" autocomplete="off">
+<label for="wifi-ssid">SSID</label>
+<input id="wifi-ssid" name="ssid" required maxlength="32" autocomplete="off" spellcheck="false">
+<small>1–32 字节；中文等字符通常占多个字节。</small>
+<label for="wifi-password">新 Wi-Fi 密码</label>
+<input id="wifi-password" name="password" type="password" maxlength="64" autocomplete="new-password" spellcheck="false">
+<small>空值表示开放网络；否则为 8–63 个可打印 ASCII 字符，或 64 位十六进制。不会读取或回填旧密码，保存时会覆盖旧值。</small>
+<div class="actions"><button type="submit">保存并退出</button></div>
+</form>
+</section>
+<div class="actions">
+<button id="sync-now" type="button">立即校时</button>
+<button id="exit" type="button">退出管理</button>
+</div>
+<p><small>立即校时使用已保存的配置，可能等待约 25 秒；保存新配置后会退出管理，并自动尝试一次校时。</small></p>
+<p id="message" role="status" aria-live="polite"></p>
+<script>
+'use strict';
+const byId = id => document.getElementById(id);
+let busy = false, ended = false, loadedSSID = false;
+const message = text => { byId('message').textContent = text; };
+async function request(path, body) {
+  const options = {credentials: 'same-origin', cache: 'no-store'};
+  if (body !== undefined) {
+    options.method = 'POST';
+    options.headers = {'Content-Type': 'application/json'};
+    options.body = JSON.stringify(body);
+  }
+  // Browser handles the HTTP Basic challenge; no credential/token is stored here.
+  const response = await fetch(path, options);
+  const data = await response.json();
+  if (!response.ok || data.ok === false) throw new Error(data.error || '请求失败');
+  return data;
+}
+async function poll() {
+  if (busy || ended) return;
+  try {
+    const data = await request('/api/status');
+    if (ended) return;
+    byId('rtc').textContent = data.rtc_time || '无有效时间';
+    byId('valid').textContent = data.rtc_valid ? '有效' : '无效，建议校时';
+    byId('connected').textContent = data.sta_connected ? '已连接' : '未连接';
+    byId('ip').textContent = data.sta_ip || '—';
+    byId('ssid').textContent = data.ssid || '未配置';
+    byId('sync').textContent = data.last_sync > 0 ? new Date(data.last_sync * 1000).toLocaleString() : '尚无成功记录';
+    if (!loadedSSID) {
+      if (!byId('wifi-ssid').value) byId('wifi-ssid').value = data.ssid || '';
+      loadedSSID = true;
+    }
+  } catch (_) {
+    if (!ended) message('无法读取状态：可能已自动退出，或网络已断开。请重新进入管理模式后刷新页面。');
+  }
+}
+async function command(path, body, exits) {
+  if (busy || ended) return;
+  busy = true;
+  document.querySelectorAll('button,input').forEach(el => { el.disabled = true; });
+  message(path === '/api/sync' ? '正在校时，请稍候（最多约 25 秒）…' : '正在处理…');
+  try {
+    await request(path, body);
+    if (exits) {
+      ended = true;
+      clearInterval(timer);
+      byId('wifi-password').value = '';
+      message(path === '/api/config' ? '配置已保存，即将退出管理并尝试校时。网络断开属正常现象。' : '已退出管理，可关闭此页面。');
+    } else {
+      message('校时成功。');
+    }
+  } catch (_) {
+    message('操作未确认成功：校时可能失败，或管理会话已结束。若保存时连接中断，请重新进入管理确认配置。');
+  } finally {
+    busy = false;
+    if (!ended) {
+      document.querySelectorAll('button,input').forEach(el => { el.disabled = false; });
+      void poll();
+    }
+  }
+}
+byId('config').addEventListener('submit', event => {
+  event.preventDefault();
+  const ssid = byId('wifi-ssid').value;
+  const password = byId('wifi-password').value;
+  const size = new TextEncoder().encode(ssid).length;
+  if (size < 1 || size > 32) { message('SSID 必须为 1–32 字节。'); return; }
+  if (password !== '' && !/^[\x20-\x7e]{8,63}$/.test(password) && !/^[0-9a-fA-F]{64}$/.test(password)) {
+    message('密码必须为空、8–63 个可打印 ASCII 字符或 64 位十六进制。'); return;
+  }
+  void command('/api/config', {ssid, password}, true);
+});
+byId('sync-now').addEventListener('click', () => { void command('/api/sync', {}, false); });
+byId('exit').addEventListener('click', () => { void command('/api/exit', {}, true); });
+const timer = setInterval(poll, 10000);
+void poll();
+</script>
+</body>
+</html>

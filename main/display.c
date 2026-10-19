@@ -20,6 +20,15 @@ static const struct { char character; uint8_t rows[7]; } glyphs[] = {
     {'R',{30,17,17,30,20,18,17}}, {'S',{15,16,16,14,1,1,30}},
     {'T',{31,4,4,4,4,4,4}}, {'U',{17,17,17,17,17,17,14}},
     {'V',{17,17,17,17,17,10,4}}, {'Y',{17,17,10,4,4,4,4}},
+    {'F',{31,16,16,30,16,16,16}}, {'G',{14,17,16,23,17,17,15}},
+    {'N',{17,25,25,21,19,19,17}}, {'O',{14,17,17,17,17,17,14}},
+    {'W',{17,17,17,21,21,27,17}}, {'X',{17,17,10,4,10,17,17}},
+    {'a',{0,0,14,1,15,17,15}}, {'b',{16,16,30,17,17,17,30}},
+    {'c',{0,0,14,17,16,17,14}}, {'d',{1,1,15,17,17,17,15}},
+    {'e',{0,0,14,17,31,16,14}}, {'f',{6,9,8,28,8,8,8}},
+    {'i',{4,0,12,4,4,4,14}}, {'m',{0,0,26,21,21,21,21}},
+    {'n',{0,0,30,17,17,17,17}}, {'p',{0,0,30,17,30,16,16}},
+    {'r',{0,0,22,25,16,16,16}}, {'/',{1,2,2,4,8,8,16}},
 };
 
 static void text(uint8_t *frame, int x, int y, int scale, const char *value)
@@ -39,6 +48,21 @@ static void text(uint8_t *frame, int x, int y, int scale, const char *value)
     }
 }
 
+void management_render(uint8_t *frame, const char *ssid, const char *password, const char *ip)
+{
+    memset(frame, 0xff, CLOCK_FRAME_SIZE);
+    text(frame, 48, 36, 5, "WIFI SETUP");
+    text(frame, 48, 112, 3, "WIFI:");
+    text(frame, 174, 112, 3, ssid);
+    text(frame, 48, 174, 3, "PASS:");
+    text(frame, 174, 174, 3, password);
+    text(frame, 48, 236, 3, "HTTP:");
+    text(frame, 174, 236, 3, ip);
+    text(frame, 48, 298, 3, "USER: admin");
+    text(frame, 48, 350, 3, "WEB PASS: SAME AS WIFI");
+    text(frame, 48, 412, 2, "IDLE 5 MIN / MAX 15 MIN");
+}
+
 void clock_render(uint8_t *frame, const struct tm *time, bool valid_time,
                   float temperature, float humidity, int battery)
 {
@@ -49,7 +73,7 @@ void clock_render(uint8_t *frame, const struct tm *time, bool valid_time,
         text(frame, 70, 45, 4, value);
         strftime(value, sizeof(value), "%H:%M", time);
     } else {
-        text(frame, 70, 45, 3, "SET TIME VIA USB");
+        text(frame, 70, 45, 3, "SET TIME WIFI/USB");
         strcpy(value, "--:--");
     }
     text(frame, 70, 130, 22, value);

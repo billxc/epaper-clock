@@ -18,6 +18,11 @@ static void write_reg(uint8_t reg, uint8_t value)
 static unsigned from_bcd(uint8_t value) { return (value >> 4) * 10 + (value & 15); }
 static uint8_t to_bcd(unsigned value) { return ((value / 10) << 4) | (value % 10); }
 
+bool rtc_alarm_pending(void)
+{
+    return (read_reg(0x01) & 0x40) != 0;
+}
+
 void rtc_init(void)
 {
     gpio_config_t config = {
