@@ -4,7 +4,8 @@ Waveshare **ESP32-S3-ePaper-3.97** 的节能时钟固件，使用 **ESP-IDF 5.5.
 功能：时钟、日期、温湿度、电量、每日 NTP 校时、BLE 配网、按键开启的局域网 HTTP 管理。
 **只以 Wi-Fi STA 模式加入用户的路由器，不创建热点。** 音频和用户闹钟已移除。
 
-完整的当前状态图、失败路径和未实现转换见 [有限状态机梳理](docs/state-machine.md)。
+后续目标交互见 [三个模式 + 统一屏幕选单（待实现）](docs/interaction.md)。
+当前固件的状态图、失败路径和未实现转换见 [有限状态机梳理](docs/state-machine.md)。
 
 ## 首次设置：HTTPS 网页 → BLE → 路由器
 
