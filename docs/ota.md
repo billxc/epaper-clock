@@ -1,6 +1,6 @@
 # USB 首装、LAN OTA 与回滚
 
-本版使用 ESP-IDF OTA，不是自行编写 bootloader。代码已实现，**本次改动尚未完成完整固件构建和真实设备 OTA 验收**。
+本版使用 ESP-IDF OTA，不是自行编写 bootloader。版本 `b420e0f` 已通过完整固件构建和软件测试，**尚未完成真实设备 OTA／断电／回滚验收**。
 
 ## 分区与兼容边界
 
@@ -18,6 +18,9 @@
 新功能需要先用 USB 安装一次；以后的 OTA 只更新非运行应用槽，不改分区表和 bootloader。
 
 ## 首次安装
+
+已验证构建：[b420e0f / Firmware](https://github.com/billxc/epaper-clock/actions/runs/39217398676)。
+应用为 1,790,944 字节（1.708MiB），小于单槽 3MiB；合并首装镜像为 1,922,016 字节。
 
 CI 的 `epaper-clock-firmware` 产物包含：
 

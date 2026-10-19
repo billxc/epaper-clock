@@ -1,7 +1,7 @@
 # HTTPS 蓝牙设置页面
 
 静态 Pages 客户端：**仅 Wi-Fi 设置和手动时间**，初始化与蓝牙管理共用。
-本次代码新增 `clock-control` 保存/设时回执；旧固件不支持。尚未完成本版完整固件构建与实机联调。
+本版新增 `clock-control` 保存/设时回执，旧固件不支持。`b420e0f` 已通过完整构建和软件测试，尚未实机联调。
 
 公开页面地址 https://billxc.github.io/epaper-clock/ 。是否已经部署本版，以项目根 README / 当前发布状态为准。
 GitHub Pages 使用 `main` 分支 `/docs`，无需后端、npm安装、CDN、Service Worker。
@@ -82,7 +82,7 @@ python3 -m http.server 8000 --directory docs
 
 localhost可开发；其他机器访问普通LAN HTTP不是Web Bluetooth安全上下文，部署应使用HTTPS。
 本地21项Node测试已通过，另有浏览器mock覆盖配对、手动设时、保存ACK及断开清空。
-本版仍需ESP-IDF构建、真实BLE/GATT/MTU、路由器、重复设置、窗口结束及退出功耗验证。
+ESP-IDF构建及原生C菜单/绘图测试也已通过CI。仍需真实BLE/GATT/MTU、路由器、重复设置、窗口结束及退出功耗验证。
 
 协议实现为依据公开规范独立编写，未打包社区库。曾检查的社区候选有未实现Security1或缺测试的版本，
 因此没有声称存在可直接信任的官方浏览器库。项目代码MIT，SDK作为独立Apache-2.0构建依赖。

@@ -3,8 +3,8 @@
 Waveshare **ESP32-S3-ePaper-3.97** 节能时钟，ESP-IDF **5.5.2**，16MB Flash / 8MB PSRAM。
 设备只加入用户路由器的 **2.4GHz Wi-Fi（STA）**，不开热点。
 
-> 本次菜单、蓝牙手动设时和 OTA 已写入代码，正在整合验证；尚未完成这版的完整固件构建与实机验收。
-> 之前已发布的原型固件不包含这些新功能。不要把编译、网页模拟或协议测试当作实机通过。
+> 菜单、蓝牙手动设时和 OTA 已实现，并通过 ESP-IDF 5.5.2 完整构建、协议/菜单/绘图测试及浏览器模拟。
+> **尚未进行实机刷入、BLE/路由器联调、OTA断电回滚或电池电流验收**；不要把软件测试当作实机通过。
 
 - [模式与按键规则](docs/interaction.md)
 - [三模式状态机](docs/state-machine.md)
@@ -32,6 +32,10 @@ Waveshare **ESP32-S3-ePaper-3.97** 节能时钟，ESP-IDF **5.5.2**，16MB Flash
 - 选当前模式只关闭选单，不重启服务；选单闲置 30 秒收起。诊断和立即对时可以重复执行。
 - 电池 PMU 关机后拨轮不能唤醒：先用 PWR 开机，时钟保留短暂按键窗口；正常 RTC 唤醒不额外等这个窗口。
 - BOOT 上电是下载模式，不是管理入口。
+
+下面是原生 C 绘图测试输出的 800×480 菜单预览（不是实物照片）：
+
+![屏幕模式菜单](docs/screenshots/menu.png)
 
 菜单有六项：
 
@@ -96,6 +100,9 @@ idf.py set-target esp32s3
 idf.py build
 idf.py -p /dev/ttyACM0 flash
 ```
+
+已验证版本 **`b420e0f`**：[CI 构建与下载](https://github.com/billxc/epaper-clock/actions/runs/39217398676)。
+在 Artifacts 下载 `epaper-clock-firmware`。应用大小 **1.708MiB**，每个 3MiB OTA 槽剩余约 **1.292MiB**。
 
 `Firmware` workflow 运行协议/菜单/绘图测试并编译固件。应用产物 `epaper-clock.bin` 用于 OTA；
 `epaper-clock-factory.bin` 是首次 USB 安装合并镜像，不是 OTA 文件。具体地址、保留 NVS 的刷法见 [OTA 文档](docs/ota.md)。
