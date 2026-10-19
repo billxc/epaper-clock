@@ -23,7 +23,7 @@ bool rtc_alarm_pending(void)
     return (read_reg(0x01) & 0x40) != 0;
 }
 
-void rtc_init(void)
+void clock_rtc_init(void)
 {
     gpio_config_t config = {
         .pin_bit_mask = (1ULL << 45) | (1ULL << 1), .mode = GPIO_MODE_INPUT,

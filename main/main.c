@@ -101,7 +101,7 @@ void app_main(void)
     i2c_master_init();
     axp_init();
     bool scheduled_start = rtc_alarm_pending();
-    rtc_init();
+    clock_rtc_init();
     gpio_config_t button = {
         .pin_bit_mask = (1ULL << MANAGEMENT_BUTTON) | (1ULL << PROVISION_BUTTON),
         .mode = GPIO_MODE_INPUT,
