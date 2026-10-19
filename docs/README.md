@@ -32,6 +32,8 @@ GitHub Pages 使用 `main` 分支 `/docs`，无需后端、npm安装、CDN、Ser
 新协议和固件API：[clock-control.md](clock-control.md)。模式与按钮：[interaction.md](interaction.md)。
 LAN网页与OTA不属于此页，不从HTTPS页面跨域调用设备HTTP。
 
+配网、供电、备用电池、TF、局刷及续航的讨论结论汇总见 [本地对话疑问记录](questions.md)。
+
 ## Security1 与 BLE 兼容性
 
 使用 ESP-IDF v5.5.2 的标准 `wifi_provisioning` BLE方案和默认服务UUID：

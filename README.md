@@ -6,6 +6,7 @@ Waveshare **ESP32-S3-ePaper-3.97** 节能时钟，ESP-IDF **5.5.2**，16MB Flash
 > 菜单、蓝牙手动设时和 OTA 已实现，并通过 ESP-IDF 5.5.2 完整构建、协议/菜单/绘图测试及浏览器模拟。
 > **尚未进行实机刷入、BLE/路由器联调、OTA断电回滚或电池电流验收**；不要把软件测试当作实机通过。
 
+- [本地对话疑问与结论：供电、电池、TF、刷新和续航](docs/questions.md)
 - [模式与按键规则](docs/interaction.md)
 - [三模式状态机](docs/state-machine.md)
 - [蓝牙设置协议](docs/clock-control.md)
