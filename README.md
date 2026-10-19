@@ -12,6 +12,14 @@ Waveshare **ESP32-S3-ePaper-3.97** 节能时钟，ESP-IDF **5.5.2**，16MB Flash
 - [OTA、首次刷入与回滚](docs/ota.md)
 - [第三方来源与许可](THIRD_PARTY.md)
 
+## 时钟画面
+
+![原生分辨率时钟预览](docs/screenshots/clock.png)
+
+800×480 C 绘图测试预览，数值为测试样例，不是实机照片。
+时间使用原生 200px、读数使用原生 40px 字库，不再将 5×7 点阵放大；设备不运行字体引擎，帧缓冲大小和刷新策略不变。
+主页只保留日期、时间、电量和温湿度，不常驻操作提示。
+
 ## 三个业务模式
 
 | 模式 | 用途 |
@@ -101,8 +109,8 @@ idf.py build
 idf.py -p /dev/ttyACM0 flash
 ```
 
-已验证版本 **`b420e0f`**：[CI 构建与下载](https://github.com/billxc/epaper-clock/actions/runs/39217398676)。
-在 Artifacts 下载 `epaper-clock-firmware`。应用大小 **1.708MiB**，每个 3MiB OTA 槽剩余约 **1.292MiB**。
+已验证版本 **`4ed28b8`**：[CI 构建与下载](https://github.com/billxc/epaper-clock/actions/runs/39220606914)。
+在 Artifacts 下载 `epaper-clock-firmware`。应用大小 **1.726MiB**，每个 3MiB OTA 槽剩余约 **1.274MiB**。
 
 `Firmware` workflow 运行协议/菜单/绘图测试并编译固件。应用产物 `epaper-clock.bin` 用于 OTA；
 `epaper-clock-factory.bin` 是首次 USB 安装合并镜像，不是 OTA 文件。具体地址、保留 NVS 的刷法见 [OTA 文档](docs/ota.md)。
