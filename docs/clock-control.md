@@ -2,7 +2,7 @@
 
 本文件描述 `main/provision.c/.h` 与 Pages 前端的协议，主流程已接入；上层交互见
 [interaction.md](interaction.md)。手动设时不依赖 LAN、HTTP、NTP 或手机当前 Wi-Fi。
-固件 `b420e0f` 已通过完整构建及软件测试；真实 BLE／板端联调仍待验收。
+配套固件已通过完整构建及软件测试，最新下载见项目 README；真实 BLE／板端联调仍待验收。
 
 ## 传输与安全
 

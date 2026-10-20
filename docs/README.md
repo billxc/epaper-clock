@@ -1,7 +1,7 @@
 # HTTPS 蓝牙设置页面
 
 静态 Pages 客户端：**仅 Wi-Fi 设置和手动时间**，初始化与蓝牙管理共用。
-本版新增 `clock-control` 保存/设时回执，旧固件不支持。`b420e0f` 已通过完整构建和软件测试，尚未实机联调。
+本版新增 `clock-control` 保存/设时回执，旧固件不支持。配套固件已通过完整构建和软件测试，尚未实机联调；最新下载见项目 README。
 
 公开页面地址 https://billxc.github.io/epaper-clock/ 。是否已经部署本版，以项目根 README / 当前发布状态为准。
 GitHub Pages 使用 `main` 分支 `/docs`，无需后端、npm安装、CDN、Service Worker。

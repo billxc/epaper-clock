@@ -3,7 +3,7 @@
 Waveshare **ESP32-S3-ePaper-3.97** 节能时钟，ESP-IDF **5.5.2**，16MB Flash / 8MB PSRAM。
 设备只加入用户路由器的 **2.4GHz Wi-Fi（STA）**，不开热点。
 
-> 菜单、蓝牙手动设时和 OTA 已实现，并通过 ESP-IDF 5.5.2 完整构建、协议/菜单/绘图测试及浏览器模拟。
+> 菜单、蓝牙手动设时、LAN 三项全局渲染和 OTA 已实现，并通过 ESP-IDF 5.5.2 完整构建、协议/菜单/绘图/帧编码测试及浏览器模拟。
 > **尚未进行实机刷入、BLE/路由器联调、OTA断电回滚或电池电流验收**；不要把软件测试当作实机通过。
 
 - [本地对话疑问与结论：供电、电池、TF、刷新和续航](docs/questions.md)
@@ -114,8 +114,9 @@ idf.py build
 idf.py -p /dev/ttyACM0 flash
 ```
 
-已验证版本 **`5109c43`**：[CI 构建与下载](https://github.com/billxc/epaper-clock/actions/runs/39275624253)。
-在 Artifacts 下载 `epaper-clock-firmware`。应用大小 **1.726MiB**，每个 3MiB OTA 槽剩余约 **1.274MiB**。
+已验证版本 **`d1e7cb3`**：[CI 构建与下载](https://github.com/billxc/epaper-clock/actions/runs/39436253905)。
+在 Artifacts 下载 `epaper-clock-firmware`。应用大小 **2.705MiB**，每个 3MiB OTA 槽剩余约 **0.295MiB**。
+已安装双 OTA 分区版本的设备可直接上传独立应用，无需因新增渲染模式重划分区。
 
 `Firmware` workflow 运行协议/菜单/绘图测试并编译固件。应用产物 `epaper-clock.bin` 用于 OTA；
 `epaper-clock-factory.bin` 是首次 USB 安装合并镜像，不是 OTA 文件。具体地址、保留 NVS 的刷法见 [OTA 文档](docs/ota.md)。
