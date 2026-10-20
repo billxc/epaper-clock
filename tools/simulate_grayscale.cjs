@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 /* Offline display study only: does not change firmware or its font tables.
- * Usage: NODE_PATH="$(npm root -g)" node tools/simulate_grayscale.cjs FONT.ttf OUTPUT_DIR
+ * Usage: NODE_PATH="$(npm root -g)" node tools/simulate_grayscale.cjs FONT.ttf OUTPUT_DIR [--ink-match]
+ * --ink-match derives a coverage curve from existing monochrome thresholds;
+ * it is our candidate mapping, not a FreeInk waveform or panel calibration.
  * Input Noto Sans SC and license: tools/OFL-NotoSansSC.txt.
  * Mirrors clock/menu/management fixtures and native font rasterizers, then quantizes
  * coverage (not a blurred monochrome screenshot), using four ideal gray levels.
@@ -15,6 +17,7 @@ const root = path.resolve(__dirname, '..');
     const font = fs.readFileSync(process.argv[2]);
     if (crypto.createHash('sha256').update(font).digest('hex') !==
         'd68bafcb48a2707749396aa12bbbd833cb70401f3a9a689fd2902c7e0d295964') throw Error('Unexpected Noto font');
+    const inkMatch = process.argv.includes('--ink-match');
     const out = path.resolve(process.argv[3]);
     fs.mkdirSync(out, { recursive: true });
     const source = fs.readFileSync(path.join(root, 'main/clock_font.c'), 'utf8');
@@ -32,17 +35,27 @@ const root = path.resolve(__dirname, '..');
     const browser = await chromium.launch({ headless: true, chromiumSandbox: true });
     try {
         const page = await browser.newPage();
-        const result = await page.evaluate(async ({ font, baseline, menuBaseline, metrics, advance }) => {
+        const result = await page.evaluate(async ({ font, baseline, menuBaseline, metrics, advance, inkMatch }) => {
             const face = new FontFace('Clock Noto', `url(data:font/ttf;base64,${font})`, { weight: '100 900' });
             const uiFace = new FontFace('UI Noto', `url(data:font/ttf;base64,${font})`);
             await Promise.all([face.load(), uiFace.load()]);
             document.fonts.add(face); document.fonts.add(uiFace);
             const gray = new Uint8Array(800 * 480).fill(255);
             const bw = new Uint8Array(800 * 480).fill(255);
+            // The high bit of quantized ink must reproduce alpha >= threshold.
+            // t - 0.5 centers the boundary between discrete alpha samples.
+            const gammas = Object.fromEntries([96, 128].map(t =>
+                [t, Math.log(0.5) / Math.log((t - 0.5) / 255)]));
+            const toneMaps = Object.fromEntries([96, 128].map(t => [t,
+                Uint8Array.from({ length: 256 }, (_, a) =>
+                    85 * Math.round(3 * Math.pow(a / 255, gammas[t])))]));
+            if (inkMatch) for (const t of [96, 128]) for (let a = 0; a < 256; ++a)
+                if ((toneMaps[t][a] >= 128) !== (a >= t)) throw Error('Coverage threshold mismatch');
             function put(x, y, alpha, threshold, inverse = false) {
                 if (!alpha) return;
                 const i = y * 800 + x, color = inverse ? 255 : 0;
-                gray[i] = Math.round((gray[i] * (255 - alpha) + color * alpha) / 255);
+                const coverage = inkMatch ? toneMaps[threshold][alpha] : alpha;
+                gray[i] = Math.round((gray[i] * (255 - coverage) + color * coverage) / 255);
                 if (alpha >= threshold) bw[i] = color;
             }
             function rectangle(x, y, w, h, color = 0) {
@@ -117,7 +130,8 @@ const root = path.resolve(__dirname, '..');
             }
             const versions = [bw.slice(), Uint8Array.from(gray, a => Math.round(a / 85) * 85)];
             const frames = versions.map(image);
-            const labels = ['黑白：当前固件', '4 级灰：理想模拟'];
+            const grayLabel = inkMatch ? '四灰：轮廓匹配模拟' : '四灰：线性模拟';
+            const labels = ['黑白：当前固件', grayLabel];
             const comparison = canvas(680, 750), cx = comparison.getContext('2d');
             cx.fillStyle = '#fff'; cx.fillRect(0, 0, comparison.width, comparison.height);
             cx.fillStyle = '#000'; cx.font = '400 20px "Clock Noto"';
@@ -164,7 +178,7 @@ const root = path.resolve(__dirname, '..');
             tc.fillStyle = '#000'; tc.font = '400 22px "Clock Noto"';
             tc.fillText('相同 24px 字库、字重与布局，仅比较灰度', 24, 30);
             tc.font = '400 20px "Clock Noto"';
-            tc.fillText('黑白', 24, 66); tc.fillText('四级灰（理想模拟）', 440, 66);
+            tc.fillText('黑白', 24, 66); tc.fillText(grayLabel, 440, 66);
             const crops = [
                 { page: 0, x: 40, y: 164, title: '菜单普通中文' },
                 { page: 0, x: 40, y: 83, title: '黑底选中项：白字' },
@@ -181,20 +195,45 @@ const root = path.resolve(__dirname, '..');
             });
             tc.font = '400 18px "Clock Noto"';
             tc.fillText('最近邻放大 2 倍；非实屏图，地址和校验码均为虚构示例', 24, 666);
+            function sideBySide(pair, name) {
+                const c = canvas(1648, 552), ctx = c.getContext('2d');
+                ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+                ctx.fillStyle = '#000'; ctx.font = '400 22px "Clock Noto"';
+                ctx.fillText(`${name}：当前黑白`, 16, 32); ctx.fillText(`${name}：${grayLabel}`, 832, 32);
+                ctx.imageSmoothingEnabled = false;
+                ctx.drawImage(pair[0], 16, 56); ctx.drawImage(pair[1], 832, 56);
+                return c.toDataURL().split(',')[1];
+            }
+            const monoRecovery = {};
+            for (const [name, pair] of [['clock', frames], ...pages.map(p => [p.name, p.frames])]) {
+                const m = pair[0].getContext('2d').getImageData(0, 0, 800, 480).data;
+                const g = pair[1].getContext('2d').getImageData(0, 0, 800, 480).data;
+                let diff = 0;
+                for (let i = 0; i < m.length; i += 4) if ((g[i] < 128 ? 0 : 255) !== m[i]) ++diff;
+                monoRecovery[name] = diff;
+            }
+            if (inkMatch && Object.values(monoRecovery).some(n => n !== 0))
+                throw Error(`2bpp monochrome recovery mismatch: ${JSON.stringify(monoRecovery)}`);
             return { images: frames.map(c => c.toDataURL().split(',')[1]), comparison: comparison.toDataURL().split(',')[1],
+                clockPair: sideBySide(frames, '时钟主页'), menuPair: sideBySide(pages[0].frames, '菜单'),
+                monoRecovery, gammas,
                 pages: pages.map(p => ({ name: p.name, images: p.frames.map(c => c.toDataURL().split(',')[1]) })),
                 textComparison: textComparison.toDataURL().split(',')[1], menuMismatches,
                 metrics: versions.map((a, i) => ({ levels: [2, 4][i], unique: [...new Set(a)].sort((a,b)=>a-b),
                     gray_pixels: a.reduce((n, v) => n + (v !== 0 && v !== 255), 0),
                     changed_pixels: a.reduce((n,v,j)=>n+(v!==versions[0][j]),0) })), mismatches };
         }, { font: font.toString('base64'), baseline: fs.readFileSync(path.join(root, 'docs/screenshots/clock.png')).toString('base64'),
-            menuBaseline: fs.readFileSync(path.join(root, 'docs/screenshots/menu.png')).toString('base64'), metrics, advance });
+            menuBaseline: fs.readFileSync(path.join(root, 'docs/screenshots/menu.png')).toString('base64'), metrics, advance, inkMatch });
         ['mono.png', 'gray4.png'].forEach((name, i) => fs.writeFileSync(path.join(out, name), Buffer.from(result.images[i], 'base64')));
         fs.writeFileSync(path.join(out, 'edge-comparison.png'), Buffer.from(result.comparison, 'base64'));
         for (const p of result.pages) p.images.forEach((data, i) =>
             fs.writeFileSync(path.join(out, `${p.name}-${i ? 'gray4' : 'mono'}.png`), Buffer.from(data, 'base64')));
         fs.writeFileSync(path.join(out, 'ui-text-comparison.png'), Buffer.from(result.textComparison, 'base64'));
-        const report = { reference_matches_c: result.mismatches === 0, menu_matches_c: result.menuMismatches === 0, images: result.metrics };
+        fs.writeFileSync(path.join(out, 'clock-side-by-side.png'), Buffer.from(result.clockPair, 'base64'));
+        fs.writeFileSync(path.join(out, 'menu-side-by-side.png'), Buffer.from(result.menuPair, 'base64'));
+        const report = { algorithm: inkMatch ? 'ink-match' : 'linear', gammas: result.gammas,
+            monochrome_recovery_differences: result.monoRecovery,
+            reference_matches_c: result.mismatches === 0, menu_matches_c: result.menuMismatches === 0, images: result.metrics };
         fs.writeFileSync(path.join(out, 'metrics.json'), JSON.stringify(report, null, 2));
         console.log(JSON.stringify({ output: out, ...report }, null, 2));
     } finally { await browser.close(); }
