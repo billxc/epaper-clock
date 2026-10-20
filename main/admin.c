@@ -5,9 +5,7 @@
 #include "app_runtime.h"
 #include "ota.h"
 #include "render_settings.h"
-
-// UI-owner API supplied by app_ui; redraws only an already-open menu.
-extern void app_ui_refresh_menu(void);
+#include "esp_ota_ops.h"
 #include "esp_app_desc.h"
 #include "esp_system.h"
 #include "esp_random.h"
@@ -148,6 +146,10 @@ static esp_err_t status_json(httpd_req_t *r)
         cJSON_AddNumberToObject(upgrade, "received", (double)ota.received);
         cJSON_AddNumberToObject(upgrade, "total", (double)ota.total);
         cJSON_AddBoolToObject(upgrade, "busy", ota_busy());
+        const esp_partition_t *running = esp_ota_get_running_partition();
+        const esp_partition_t *next = esp_ota_get_next_update_partition(NULL);
+        cJSON_AddNumberToObject(upgrade, "current_slot_bytes", (double)running->size);
+        cJSON_AddNumberToObject(upgrade, "next_slot_bytes", next ? (double)next->size : 0);
     }
     char *text = cJSON_PrintUnformatted(json);
     cJSON_Delete(json);

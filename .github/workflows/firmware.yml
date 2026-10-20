@@ -46,6 +46,7 @@ jobs:
           idf.py build
           idf.py merge-bin -o "$PWD/build/epaper-clock-factory.bin"
           python tools/package_licenses.py
+          cp partitions.csv build/partitions.csv
       - uses: actions/upload-artifact@v4
         with:
           name: epaper-clock-firmware
@@ -55,6 +56,7 @@ jobs:
             build/ota_data_initial.bin
             build/bootloader/bootloader.bin
             build/partition_table/partition-table.bin
+            build/partitions.csv
             build/flasher_args.json
             build/flash_args
             build/licenses/**

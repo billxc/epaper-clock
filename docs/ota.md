@@ -1,33 +1,35 @@
 # USB 首装、LAN OTA 与回滚
 
-本版使用 ESP-IDF OTA，不是自行编写 bootloader。版本 `d1e7cb3` 已通过完整固件构建和软件测试，**尚未完成真实设备 OTA／断电／回滚验收**。
+本版使用 ESP-IDF OTA，不是自行编写 bootloader。当前布局为两个 7.5MiB 应用槽；从旧 3MiB 双槽迁移需要 USB 更新分区表及启动状态。**尚未完成真实设备分区迁移、OTA／断电／回滚验收**。
 
 ## 分区与兼容边界
 
-16MB Flash 中预留两个 3MiB 应用槽：
+16MiB Flash 分配两个 7.5MiB 应用槽，尾部 896KiB 暂未分配，不创建无用文件系统：
 
 | 内容 | 地址 / 大小 |
 | --- | --- |
 | NVS | `0x9000` / `0x6000`（保留原位置） |
 | PHY | `0xf000` / `0x1000` |
 | OTA 状态 | `0x10000` / `0x2000` |
-| OTA A | `0x20000` / `0x300000` |
-| OTA B | `0x320000` / `0x300000` |
+| OTA A | `0x20000` / `0x780000`（7.5MiB） |
+| OTA B | `0x7a0000` / `0x780000`（7.5MiB） |
+| 未分配尾部 | `0xf20000` / `0xe0000`（896KiB） |
 
 没有沿用原型的 `factory` 单应用分区。**旧原型没有 OTA 接收器，也没有此分区布局，不能直接通过它无线安装本版。**
-新功能需要先用 USB 安装一次；以后的 OTA 只更新非运行应用槽，不改分区表和 bootloader。
+**已安装旧 3MiB 双槽的设备同样需要一次 USB 迁移。**普通应用 OTA 只更新非运行槽，不改分区表和 bootloader；即使新应用能装进旧槽运行，也不会使容量变大。新布局安装完成后，日常升级仍只上传独立应用。
 
 ## 首次安装
 
-已验证构建：[d1e7cb3 / Firmware](https://github.com/billxc/epaper-clock/actions/runs/39436253905)。
-应用为 2,836,832 字节（2.705MiB），小于单槽 3MiB；合并首装镜像为 2,967,904 字节。
-本次全局渲染没有改变分区表，已有双 OTA 固件可直接应用升级。显示设置使用独立 NVS 项，旧版会忽略；黑白 SD 缓存仍保持原 1bpp 格式。
+新布局构建入口：[Firmware](https://github.com/billxc/epaper-clock/actions/workflows/firmware.yml)。旧 `d1e7cb3` 构建仍是 3MiB 布局，不用于这次扩容。
+下载后核对同包 `partitions.csv`：两槽大小均应为 `0x780000`，OTA B 位于 `0x7a0000`。实际烧录始终使用同一包的二进制分区表和 manifest，不把文本文件直接烧到 Flash。
+NVS／PHY 位置不变；渲染设置、Wi-Fi 配置与黑白 SD 缓存格式不因扩大 OTA 槽而迁移。
 
 CI 的 `epaper-clock-firmware` 产物包含：
 
 - `epaper-clock-factory.bin`：USB 首装合并镜像，烧到 `0x0`。
 - `epaper-clock.bin`：独立应用，用于后续 LAN OTA。
 - bootloader、partition-table、`ota_data_initial.bin`、`flash_args`、`flasher_args.json`。
+- `partitions.csv`：便于人工核对本构建布局，不是烧录文件。
 
 可以用乐鑫 Flash Download Tool 或已有 ESP-IDF 环境的 `idf.py flash`。
 数据线连接设备；不能自动进入下载时，按住 BOOT 重新上电。BOOT 不等于上键，后者是业务初始化入口。
@@ -44,6 +46,16 @@ CI 的 `epaper-clock-firmware` 产物包含：
 
 始终以同一构建产物的 manifest 为准，不混用不同构建的 bootloader/分区表/应用。
 不要使用旧原型应用地址 `0x10000` 安装本版应用。Flash 修改前应保存需要的原固件/配置。
+
+## 从旧 3MiB 双槽迁移
+
+1. 先完成上次 OTA 并正常退出管理；不要在上传、校验或首次启动确认中途改表。备份需要保留的固件和配置。
+2. 进入 ROM 下载模式，使用可靠 USB 供电，刷入同一构建的 bootloader、**新二进制分区表、OTA 初始数据及 A 槽应用**。不要仅刷新分区表：旧启动状态若指向 B，新 B 地址尚无应用，可能启动失败；应同时重建明确的 A 槽启动状态。
+3. 需要保留 NVS 时使用上述独立文件和 manifest，不整片擦除、不用可能填充覆盖 NVS 的合并镜像。
+4. 重启进入 LAN，确认「OTA 槽容量」显示**当前 7.50MiB／另一槽 7.50MiB**。该值读取实际运行分区表；若仍为 3.00MiB，只更新了应用或使用了旧表，扩容未完成。
+5. 初始化启动状态后只安装了 A 槽应用；旧 `0x320000` 处的 B 固件不是新布局的回滚槽。完成新布局下第一次正常 OTA 后，才形成新地址上的两份有效应用。
+
+USB 迁移不是原子 OTA，不提供跨新旧布局的自动回滚；中途断电可能需要再次进入 ROM 下载恢复。本项目不实现在线改表或自动搬移旧 B 镜像。
 
 ## 用户升级流程
 

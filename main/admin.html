@@ -17,6 +17,7 @@
 <dl>
 <dt>固件版本</dt><dd id="version">读取中…</dd>
 <dt>OTA 状态</dt><dd id="ota-state">—</dd>
+<dt>OTA 槽容量</dt><dd id="ota-capacity">—</dd>
 <dt>RTC 时间</dt><dd id="rtc">读取中…</dd>
 <dt>RTC 有效</dt><dd id="valid">—</dd>
 <dt>STA 连接</dt><dd id="connected">—</dd>
@@ -103,6 +104,8 @@ function render(data) {
   byId('ssid').textContent = data.ssid || '未配置';
   byId('sync').textContent = data.last_sync > 0 ? new Date(data.last_sync * 1000).toLocaleString() : '尚无成功记录';
   const ota = data.ota || {};
+  const capacity = bytes => bytes > 0 ? `${(bytes / 1048576).toFixed(2)}MiB` : '未知';
+  byId('ota-capacity').textContent = `当前 ${capacity(ota.current_slot_bytes)} / 另一槽 ${capacity(ota.next_slot_bytes)}`;
   const names = {idle:'待机', uploading:'上传中', verifying:'校验中', rebooting:'重启中', success:'升级成功', rollback:'已回滚', error:'升级失败'};
   byId('ota-state').textContent = `${names[ota.state] || ota.state || '未知'}：${ota.message || ''}`;
 }

@@ -114,9 +114,9 @@ idf.py build
 idf.py -p /dev/ttyACM0 flash
 ```
 
-已验证版本 **`d1e7cb3`**：[CI 构建与下载](https://github.com/billxc/epaper-clock/actions/runs/39436253905)。
-在 Artifacts 下载 `epaper-clock-firmware`。应用大小 **2.705MiB**，每个 3MiB OTA 槽剩余约 **0.295MiB**。
-已安装双 OTA 分区版本的设备可直接上传独立应用，无需因新增渲染模式重划分区。
+当前布局为 **7.5MiB × 2 OTA 槽**，尾部保留 896KiB 未分配空间。新布局构建入口：[Firmware](https://github.com/billxc/epaper-clock/actions/workflows/firmware.yml)，产物名 `epaper-clock-firmware`。
+迁移前核对产物附带的 `partitions.csv`：OTA B 应在 `0x7a0000`，两槽大小均为 `0x780000`；旧 `d1e7cb3` 是 3MiB 布局，不能作为扩容产物。
+**已有 3MiB 双槽设备也需要一次 USB 分区迁移。只上传独立应用不会扩大槽位。**新布局安装完成后，才继续日常 LAN OTA。
 
 `Firmware` workflow 运行协议/菜单/绘图测试并编译固件。应用产物 `epaper-clock.bin` 用于 OTA；
 `epaper-clock-factory.bin` 是首次 USB 安装合并镜像，不是 OTA 文件。具体地址、保留 NVS 的刷法见 [OTA 文档](docs/ota.md)。
