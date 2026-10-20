@@ -1,9 +1,9 @@
 /* Native/off-device test, no ESP-IDF required:
  * cc -std=c11 -Wall -Wextra -Werror -Imain tests/display_test.c main/display.c \
  *    main/ui_font.c main/clock_font.c main/render_mode.c -lm -o display_test
- * mkdir -p OUTPUT; ./display_test OUTPUT [OLD_1BPP_PBM_DIRECTORY]
- * Optional baseline directory contains the original test's five PBMs. Each
- * mono output is compared pixel-for-pixel (including inverse menu text).
+ * mkdir -p OUTPUT; ./display_test OUTPUT [REFERENCE_PBM_DIRECTORY]
+ * The optional reference directory supplies five monochrome scene PBMs for
+ * pixel-for-pixel regression checks (including inverse menu text).
  */
 #include "display.h"
 #include "render_mode.h"
@@ -13,7 +13,7 @@
 #include <string.h>
 
 _Static_assert(CLOCK_FRAME_SIZE == 96000, "packed 2bpp frame size");
-_Static_assert(CLOCK_MONO_FRAME_SIZE == 48000, "legacy mono frame size");
+_Static_assert(CLOCK_MONO_FRAME_SIZE == 48000, "mono cache frame size");
 static unsigned char guarded[CLOCK_FRAME_SIZE + 32];
 static unsigned char *const frame = guarded + 16;
 static unsigned char mono[7][CLOCK_MONO_FRAME_SIZE];

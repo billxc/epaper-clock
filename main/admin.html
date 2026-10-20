@@ -54,7 +54,7 @@
 <section aria-labelledby="ota-title">
 <h2 id="ota-title">本地固件升级</h2>
 <p class="notice">仅上传本项目、对应芯片的独立应用 <code>.bin</code>。不要上传 bootloader、分区表、合并镜像或其它项目。不会自动下载远程版本。升级前保持可靠供电，过程中不要断电或关闭设备。</p>
-<p>首次支持 OTA 的固件必须通过 USB 刷入。新固件通过本机基础硬件健康检查才确认启动；启动失败将回滚至旧的 OTA 固件，并恢复本管理页。若屏幕菜单已打开，请先选择「LAN 管理模式」关闭菜单，再上传，以保证屏幕能显示升级警告。</p>
+<p>首次安装通过 USB 刷入完整文件组。上传的应用通过本机基础硬件健康检查才确认启动；启动失败将回滚至备用槽中的有效应用，并恢复本管理页。若屏幕菜单已打开，请先选择「LAN 管理模式」关闭菜单，再上传，以保证屏幕能显示升级警告。</p>
 <label for="firmware">选择本地应用 bin：</label>
 <input id="firmware" type="file" accept=".bin,application/octet-stream">
 <div class="actions"><button id="upgrade" type="button">上传并升级</button></div>
@@ -89,7 +89,7 @@ async function request(path, body, timeout = 35000) {
 function render(data) {
   baselineBoot = data.boot_id;
   byId('version').textContent = data.appversion || '未知';
-  // Old firmware/browser mocks lack these fields: retain the mono default.
+  // Missing render fields retain the monochrome default.
   const saved = canonicalRender(data.render_mode);
   const active = canonicalRender(data.active_render_mode);
   byId('saved-render').textContent = renderNames[saved];

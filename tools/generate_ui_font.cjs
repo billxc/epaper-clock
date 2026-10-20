@@ -106,8 +106,7 @@ const { chromium } = require('@playwright/test');
             }
             return result;
         };
-        // Optionally compare every glyph pixel against the original generated
-        // 1bpp source (also automatically checked on the first migration run).
+        // Optionally compare monochrome glyph pixels with a 1bpp reference.
         const baseline = fs.readFileSync(process.env.UI_FONT_MONO_BASELINE ||
             path.join(__dirname, '../main/ui_font.c'), 'utf8');
         if (baseline.includes('bitmaps[][72]')) {

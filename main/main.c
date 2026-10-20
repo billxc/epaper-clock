@@ -177,7 +177,7 @@ static app_action_t clock_mode(bool manual_start)
             }
             bool full = (first && manual_start) || synced || clock_dirty || !valid ||
                 now.tm_min == 0 || now.tm_min == 30 || mode != RENDER_MONO || mode != last_rendered_mode;
-            // The on-card v1 format remains 1bpp for old-firmware compatibility.
+            // The SD cache stores 1bpp; expand it into the 2bpp application frame.
             bool cached = !full && cache_read(previous_frame, CLOCK_MONO_FRAME_SIZE);
             if (cached) epd_expand_mono(previous_frame, CLOCK_MONO_FRAME_SIZE);
             float temperature = NAN, humidity = NAN;

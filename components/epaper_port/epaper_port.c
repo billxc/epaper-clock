@@ -215,7 +215,7 @@ esp_err_t EPD_Display_4Gray(const UBYTE *image2bpp)
 esp_err_t EPD_Display_Partial(const UBYTE *Image, UWORD Xstart, UWORD Ystart,
                             UWORD Xend, UWORD Yend)
 {
-    /* Legacy signature only; subwindows are outside this port's contract. */
+    /* This port supports only a full-screen partial-refresh window. */
     if (!Image || Xstart != 0 || Ystart != 0 || Xend != EPD_WIDTH ||
         Yend != EPD_HEIGHT) {
         return ESP_ERR_INVALID_ARG;

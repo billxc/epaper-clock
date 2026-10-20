@@ -4,7 +4,7 @@
 #include "render_mode.h"
 
 // Startup/UI owner, after NVS initialization and before starting other tasks.
-// Missing settings default to mono; never erases or migrates other namespaces.
+// Missing settings default to mono; only clock_ui settings are accessed.
 void render_settings_init(void);
 // HTTP-safe: persist only this setting, then publish the request. Never draws
 // or changes the active mode. On failure the previous request is retained.
