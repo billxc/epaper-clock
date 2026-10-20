@@ -56,6 +56,8 @@ NODE_PATH="$(npm root -g)" node tools/simulate_grayscale.cjs FONT.ttf OUTPUT_DIR
 因此有板型对应的**原生四灰**实现依据，不是通过黑白抖动伪装灰度，也不是仅凭两个 RAM 平面推断支持。
 但本项目的精简端口目前没有移植这些函数，实机灰阶质量、刷新时长和模式切换仍未验证。
 
+同款板已有 FreeInk SDK 实测支持；本项目只参考其灰阶编码、刷新基准与恢复算法，不引入 SDK 或迁移框架，详见 [FreeInk 同款板算法参考](freeink-evaluation.md)。
+
 ## 3. 代码与资源改动
 
 不是一个开关，需要贯通像素、字库、驱动及恢复路径；业务模式、按键、BLE、NTP 和 OTA 逻辑不必因此新增功能。
