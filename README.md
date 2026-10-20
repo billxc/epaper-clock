@@ -114,7 +114,8 @@ idf.py build
 idf.py -p /dev/ttyACM0 flash
 ```
 
-当前布局为 **7.5MiB × 2 OTA 槽**，尾部保留 896KiB 未分配空间。新布局构建入口：[Firmware](https://github.com/billxc/epaper-clock/actions/workflows/firmware.yml)，产物名 `epaper-clock-firmware`。
+已验证扩容版本 **`432d944`**：[CI 构建与下载](https://github.com/billxc/epaper-clock/actions/runs/39444638015)，产物名 `epaper-clock-firmware`。
+当前布局为 **7.5MiB × 2 OTA 槽**，尾部保留 896KiB 未分配空间。应用 **2.706MiB**，每槽剩余约 **4.794MiB**；NVS／PHY／OTA 状态区位置不变。
 迁移前核对产物附带的 `partitions.csv`：OTA B 应在 `0x7a0000`，两槽大小均为 `0x780000`；旧 `d1e7cb3` 是 3MiB 布局，不能作为扩容产物。
 **已有 3MiB 双槽设备也需要一次 USB 分区迁移。只上传独立应用不会扩大槽位。**新布局安装完成后，才继续日常 LAN OTA。
 

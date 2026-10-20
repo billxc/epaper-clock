@@ -1,6 +1,6 @@
 # USB 首装、LAN OTA 与回滚
 
-本版使用 ESP-IDF OTA，不是自行编写 bootloader。当前布局为两个 7.5MiB 应用槽；从旧 3MiB 双槽迁移需要 USB 更新分区表及启动状态。**尚未完成真实设备分区迁移、OTA／断电／回滚验收**。
+本版使用 ESP-IDF OTA，不是自行编写 bootloader。扩容版本 `432d944` 已通过固件构建、生成分区表核验及公开 CI；当前布局为两个 7.5MiB 应用槽，从旧 3MiB 双槽迁移需要 USB 更新分区表及启动状态。**尚未完成真实设备分区迁移、OTA／断电／回滚验收**。
 
 ## 分区与兼容边界
 
@@ -20,7 +20,7 @@
 
 ## 首次安装
 
-新布局构建入口：[Firmware](https://github.com/billxc/epaper-clock/actions/workflows/firmware.yml)。旧 `d1e7cb3` 构建仍是 3MiB 布局，不用于这次扩容。
+已验证扩容构建：[432d944 / Firmware](https://github.com/billxc/epaper-clock/actions/runs/39444638015)。应用 2,837,232 字节（2.706MiB），每槽剩余 5,027,088 字节（4.794MiB）；合并首装镜像 2,968,304 字节。旧 `d1e7cb3` 构建仍是 3MiB 布局，不用于这次扩容。
 下载后核对同包 `partitions.csv`：两槽大小均应为 `0x780000`，OTA B 位于 `0x7a0000`。实际烧录始终使用同一包的二进制分区表和 manifest，不把文本文件直接烧到 Flash。
 NVS／PHY 位置不变；渲染设置、Wi-Fi 配置与黑白 SD 缓存格式不因扩大 OTA 槽而迁移。
 
