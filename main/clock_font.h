@@ -2,8 +2,10 @@
  * Noto Sans SC bitmap derivative, SIL OFL 1.1; see tools/OFL-NotoSansSC.txt.
  * Source: notofonts/noto-cjk Sans/Variable/TTF/Subset/NotoSansSC-VF.ttf
  * Input SHA256: d68bafcb48a2707749396aa12bbbd833cb70401f3a9a689fd2902c7e0d295964
- * Native Canvas rasterization: weight 400, TIME 200px, VALUE 40px; alpha >= 128.
- * No scaling/resampling; cropped 1-bit ink, MSB-first, row-major with zero padding.
+ * Native Canvas rasterization: weight 400, TIME 200px, VALUE 40px.
+ * MSB-first linear 2bpp coverage; alpha boundaries 43,128,213, gamma=1.
+ * Original alpha>=128 bbox/bearings retained; bitmap includes 2px fringe.
+ * All 256 alpha values verified; no scaling/resampling; zero stride padding.
  */
 #ifndef CLOCK_FONT_H
 #define CLOCK_FONT_H
@@ -14,6 +16,8 @@
 extern "C" {
 #endif
 
+#define CLOCK_FONT_PADDING 2
+
 typedef enum { CLOCK_FONT_TIME, CLOCK_FONT_VALUE } clock_font_t;
 
 typedef struct {
@@ -23,7 +27,11 @@ typedef struct {
 } clock_glyph_t;
 
 /* Draw at (pen_x + bearing_x, baseline + bearing_y), then advance pen_x.
- * Width/height are tight ink bounds; stride is bytes per row; 1=ink.
+ * Width/height are ORIGINAL tight mono ink bounds; stride is bytes per row.
+ * Bitmap is (width+4)x(height+4), padded with zero coverage to byte alignment.
+ * Draw bitmap at (pen_x+bearing_x-2, baseline+bearing_y-2).
+ * Packed 2bpp MSB-first coverage 0..3; mono uses coverage>=2, gray uses all.
+ * Linear/ink-match have identical coverage for this font (gamma=1).
  * TIME: digits and '-' advance 120px; ':' advances 64px (HH:MM = 544px).
  * TIME ink is centered within advance; VALUE uses ceil(native advance)+2px.
  * Native baseline is preserved across glyphs. No runtime scaling is needed.

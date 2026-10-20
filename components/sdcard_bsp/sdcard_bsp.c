@@ -44,6 +44,11 @@ bool cache_write(const uint8_t *frame, size_t size)
     return ok;
 }
 
+void cache_invalidate(void)
+{
+    if (card) remove(CACHE_PATH);
+}
+
 void cache_unmount(void)
 {
     if (card) {

@@ -1,6 +1,9 @@
 #include "app_ui.h"
 #include "display.h"
 #include "menu_model.h"
+#include "render_mode.h"
+#include "render_settings.h"
+#include "esp_log.h"
 #include "epaper_port.h"
 #include "driver/gpio.h"
 #include "esp_err.h"
@@ -19,7 +22,7 @@ static QueueHandle_t inputs;
 static menu_keys_t keys;
 static menu_model_t model;
 static uint8_t *background, *canvas;
-static bool have_background, panel_background;
+static bool have_background, panel_background, display_ok;
 static uint32_t menu_last_activity;
 #define MENU_IDLE_MS 30000U
 
@@ -59,12 +62,37 @@ static void scan_keys(void *unused)
     }
 }
 
+static void present_panel(const uint8_t *image, const uint8_t *previous, bool full)
+{
+    bool gray = render_mode_get() != RENDER_MONO;
+    esp_err_t err = gray ? EPD_Init_4GRAY() : EPD_Init();
+    if (err == ESP_OK) {
+        if (gray) err = EPD_Display_4Gray(image);
+        else if (!full && previous) {
+            err = EPD_Display_Partial(previous, 0, 0, EPD_WIDTH, EPD_HEIGHT);
+            if (err == ESP_OK) err = EPD_Display_Partial(image, 0, 0, EPD_WIDTH, EPD_HEIGHT);
+        } else err = EPD_Display_Base(image);
+    }
+    EPD_Sleep();
+    if (err != ESP_OK && gray) {
+        ESP_LOGW("display", "Gray refresh failed, restoring monochrome: %s", esp_err_to_name(err));
+        esp_err_t saved = render_settings_fallback();
+        if (saved != ESP_OK) ESP_LOGW("display", "Unable to persist fallback: %s", esp_err_to_name(saved));
+        // A failed gray waveform has no usable differential baseline.
+        err = EPD_Init();
+        if (err == ESP_OK) err = EPD_Display_Base(image);
+        EPD_Sleep();
+    }
+    display_ok = err == ESP_OK;
+    if (!display_ok) ESP_LOGE("display", "Panel refresh failed: %s", esp_err_to_name(err));
+}
+
 static void draw_frame(const uint8_t *image)
 {
-    EPD_Init();
-    EPD_Display_Base(image);
-    EPD_Sleep();
+    present_panel(image, NULL, true);
 }
+
+bool app_ui_display_ok(void) { return display_ok; }
 
 static void draw_menu(void)
 {
@@ -127,6 +155,11 @@ void app_ui_open_menu(void)
     draw_menu();
 }
 
+void app_ui_refresh_menu(void)
+{
+    if (app_ui_owner() && model.open) draw_menu();
+}
+
 void app_ui_discard_input(void)
 {
     if (app_ui_owner()) xQueueReset(inputs);
@@ -160,7 +193,7 @@ app_ui_event_t app_ui_poll(void)
     if (model.open && dirty) draw_menu();
     else if (!model.open && was_open) {
         draw_frame(background);  /* Always full refresh when removing menu. */
-        panel_background = true;
+        panel_background = display_ok;
     }
     result.menu_open = model.open;
     return result;
@@ -170,15 +203,10 @@ void app_ui_present_clock(const uint8_t *previous, const uint8_t *image, bool fu
 {
     if (!app_ui_owner() || !image) return;
     if (!model.open) {
-        EPD_Init();
-        if (!full && previous) {
-            /* A single powered session is mandatory: sleeping between these
-             * transfers cuts ALDO3 and loses the controller's old-frame RAM. */
-            EPD_Display_Partial(previous, 0, 0, EPD_WIDTH, EPD_HEIGHT);
-            EPD_Display_Partial(image, 0, 0, EPD_WIDTH, EPD_HEIGHT);
-        } else EPD_Display_Base(image);
-        EPD_Sleep();
-        panel_background = true;
+        /* Both monochrome partial activations share one powered session.
+         * Gray frames use the vendor's complete four-level update instead. */
+        present_panel(image, previous, full);
+        panel_background = display_ok;
     }
     /* Copy after transfers so previous may safely refer to our saved frame. */
     memmove(background, image, CLOCK_FRAME_SIZE);

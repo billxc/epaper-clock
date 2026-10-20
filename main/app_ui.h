@@ -29,6 +29,10 @@ bool app_ui_owner(void);
 void app_ui_open_menu(void);
 // OTA owns the device temporarily; discard rather than replay queued clicks.
 void app_ui_discard_input(void);
+// Called after the LAN owner applies a mode and replaces the saved background.
+void app_ui_refresh_menu(void);
+bool app_ui_display_ok(void);
+// Frames are packed 2bpp (0 black, 3 white), in the active render mode.
 // Preserve a background frame while the menu overlays it.
 void app_ui_present(const uint8_t *image, bool full);
 // Restore old controller frame and update within ONE powered refresh session.

@@ -4,6 +4,10 @@
 #include "display.h"
 #include "app_runtime.h"
 #include "ota.h"
+#include "render_settings.h"
+
+// UI-owner API supplied by app_ui; redraws only an already-open menu.
+extern void app_ui_refresh_menu(void);
 #include "esp_app_desc.h"
 #include "esp_system.h"
 #include "esp_random.h"
@@ -30,7 +34,7 @@ typedef struct {
     atomic_uint activity;
     atomic_bool exiting;
     atomic_bool syncing;
-    // Atomic gate: 0=normal, 1=OTA, 2=ending, 3=main polling/drawing menu.
+    // Atomic gate: 0=normal, 1=OTA, 2=ending, 3=owner UI, 4=HTTP save.
     atomic_int gate;
     atomic_bool menu_open;
     SemaphoreHandle_t network_mutex;
@@ -131,6 +135,9 @@ static esp_err_t status_json(httpd_req_t *r)
     cJSON_AddNumberToObject(json, "last_sync", (double)last_sync);
     cJSON_AddStringToObject(json, "appversion", esp_app_get_description()->version);
     cJSON_AddNumberToObject(json, "boot_id", session(r)->boot_id);
+    cJSON_AddStringToObject(json, "render_mode", render_mode_name(render_settings_requested()));
+    cJSON_AddStringToObject(json, "active_render_mode", render_mode_name(render_mode_get()));
+    cJSON_AddStringToObject(json, "render_warning", render_settings_warning());
     ota_status_t ota;
     ota_get_status(&ota);
     cJSON *upgrade = cJSON_AddObjectToObject(json, "ota");
@@ -215,6 +222,34 @@ static esp_err_t upload(httpd_req_t *r)
     ota_response_sent();
     return sent;
 }
+static esp_err_t save_render_mode(httpd_req_t *r)
+{
+    session_t *s = session(r);
+    cJSON *json = body_json(r);
+    cJSON *mode = json ? cJSON_GetObjectItemCaseSensitive(json, "mode") : NULL;
+    render_mode_t requested;
+    // Exactly one field also rejects duplicate keys, unknown keys and aliases.
+    bool valid = json && cJSON_GetArraySize(json) == 1 && cJSON_IsString(mode) &&
+        render_mode_parse(mode->valuestring, &requested);
+    cJSON_Delete(json);
+    if (!valid) {
+        httpd_resp_set_hdr(r, "Connection", "close");
+        reply(r, "400 Bad Request", "{\"error\":\"expected exactly {mode: mono|linear|ink_match} as JSON\"}");
+        return ESP_FAIL;
+    }
+    int expected = 0;
+    if (ota_busy() || !atomic_compare_exchange_strong(&s->gate, &expected, 4))
+        return reply(r, "409 Conflict", "{\"error\":\"upgrade, screen refresh, or session ending; retry when ready\"}");
+    atomic_store(&s->activity, seconds());
+    // HTTP never changes active mode or calls into UI. Gate 4 also prevents
+    // idle exit/OTA from overtaking this accepted explicit user operation.
+    esp_err_t err = render_settings_save(requested);
+    atomic_store(&s->activity, seconds());
+    atomic_store(&s->gate, 0);
+    if (err != ESP_OK)
+        return reply(r, "500 Internal Server Error", "{\"error\":\"could not save render setting; previous request retained\"}");
+    return status_json(r); // Saved and active can differ until the owner tick.
+}
 static esp_err_t handle(httpd_req_t *r)
 {
     if (!authorized(r)) return ESP_FAIL;
@@ -236,6 +271,7 @@ static esp_err_t handle(httpd_req_t *r)
     }
     if (r->method == HTTP_GET && !strcmp(r->uri, "/api/status")) return status_json(r);
     if (r->method == HTTP_POST && !strcmp(r->uri, "/api/ota")) return upload(r);
+    if (r->method == HTTP_POST && !strcmp(r->uri, "/api/render-mode")) return save_render_mode(r);
     bool sync_route = !strcmp(r->uri, "/api/sync");
     bool exit_route = !strcmp(r->uri, "/api/exit");
     bool activity_route = !strcmp(r->uri, "/api/activity");
@@ -274,7 +310,8 @@ static esp_err_t handle(httpd_req_t *r)
 
 // Main task only. The parent's network poll hook uses app_poll, retains chosen
 // actions and calls admin_note_activity; HTTP-side hooks never pump/draw UI.
-static bool cancelled(session_t *s)
+static void show_management(uint8_t *frame, const session_t *s, const char *ip);
+static bool cancelled(session_t *s, uint8_t *frame, const char *ip)
 {
     if (ota_busy()) return false;
     int expected = 0;
@@ -286,6 +323,16 @@ static bool cancelled(session_t *s)
     if (action != APP_NONE && action != APP_LAN) s->selected = action;
     bool ending = s->selected != APP_NONE || atomic_load(&s->exiting) ||
         seconds() - atomic_load(&s->activity) >= 300;
+    // An accepted save must survive an immediately following mode/exit choice.
+    // Apply before leaving too; only the LAN redraw is skipped on that path.
+    bool render_changed = render_settings_apply();
+    if (!ending && render_changed) {
+        // Render from source under the new mode, never reinterpret an old gray
+        // frame. present preserves the open menu and updates its background.
+        show_management(frame, s, ip);
+        app_ui_refresh_menu();
+        atomic_store(&s->menu_open, app_ui_menu_open());
+    }
     // Claim the exit before releasing the UI gate. A newly arriving upload
     // must not overtake a mode choice that was already completed on screen.
     atomic_store(&s->gate, ending ? 2 : 0);
@@ -386,13 +433,15 @@ app_action_t admin_run(void)
             }
         } else {
             if (upload_shown) {
-                ota_status_t ota;
-                ota_get_status(&ota);
-                const char *lines[] = {"本次升级失败，旧固件未替换", "管理仍可使用，网页查看错误详情", "闲置计时已重新开始：五分钟"};
-                app_ui_message("升级失败", lines, 3);
-                upload_shown = false;
+                int expected = 0;
+                if (atomic_compare_exchange_strong(&s.gate, &expected, 3)) {
+                    const char *lines[] = {"本次升级失败，旧固件未替换", "管理仍可使用，网页查看错误详情", "闲置计时已重新开始：五分钟"};
+                    app_ui_message("升级失败", lines, 3);
+                    upload_shown = false;
+                    atomic_store(&s.gate, 0);
+                }
             }
-            bool leave = cancelled(&s);
+            bool leave = cancelled(&s, frame, info.ip);
             if (atomic_load(&s.exiting)) leave = true;
             if (leave) {
                 int expected = 0;
@@ -426,7 +475,7 @@ app_action_t admin_run(void)
                     const char *lines[] = {count, "正在连接已保存的 Wi-Fi", "长按中键打开选单"};
                     app_ui_message("连接 LAN", lines, 3);
                     esp_err_t err = network_start_management(&info);
-                    if (cancelled(&s)) continue;
+                    if (cancelled(&s, frame, info.ip)) continue;
                     if (err == ESP_OK) {
                         // Preserve password for the entire session, including
                         // reconnects and recovery after an OTA/rollback boot.
@@ -435,7 +484,11 @@ app_action_t admin_run(void)
                         if (err == ESP_OK) err = start_server(&server, &s);
                     }
                     if (err == ESP_OK) {
-                        show_management(frame, &s, info.ip);
+                        int expected = 0;
+                        if (atomic_compare_exchange_strong(&s.gate, &expected, 3)) {
+                            show_management(frame, &s, info.ip);
+                            atomic_store(&s.gate, 0);
+                        }
                     } else {
                         network_stop();
                         next_try = seconds() + 10;

@@ -20,6 +20,19 @@ const { chromium } = require('@playwright/test');
     const sha = crypto.createHash('sha256').update(font).digest('hex');
     const expected = 'd68bafcb48a2707749396aa12bbbd833cb70401f3a9a689fd2902c7e0d295964';
     if (sha !== expected) throw new Error(`Unexpected source SHA256: ${sha}`);
+    // Both gray modes use this same linear 2bpp coverage. Its high bit is
+    // exactly the original alpha>=128 mask; verify all discrete alpha values.
+    const coverage = Array.from({ length: 256 }, (_, a) => Math.round(3 * a / 255));
+    const gamma = Math.log(0.5) / Math.log(127.5 / 255);
+    for (let a = 0; a < 256; ++a) {
+        if ((coverage[a] >= 2) !== (a >= 128) ||
+            coverage[a] !== Math.round(3 * Math.pow(a / 255, gamma)))
+            throw Error('Clock alpha mapping mismatch');
+        for (const inverse of [false, true])
+            if ((inverse ? coverage[a] : 3 - coverage[a]) !==
+                Math.round((inverse ? a : 255 - a) / 85)) throw Error('Clock blend mismatch');
+    }
+    console.log('Verified all 256 clock alpha values: boundaries=43,128,213; gamma=1');
     const specs = [
         { name: 'TIME', size: 200, chars: '0123456789:-' },
         { name: 'VALUE', size: 40, chars: '0123456789.-%\u2103' },
@@ -30,7 +43,7 @@ const { chromium } = require('@playwright/test');
     try {
         const page = await browser.newPage();
         await page.goto('about:blank');
-        fonts = await page.evaluate(async ({ base64, specs }) => {
+        fonts = await page.evaluate(async ({ base64, specs, coverage }) => {
             const face = new FontFace('Clock Noto', `url(data:font/ttf;base64,${base64})`, { weight: '100 900' });
             await face.load();
             document.fonts.add(face);
@@ -62,7 +75,9 @@ const { chromium } = require('@playwright/test');
                     }
                     if (right < left) throw new Error(`${spec.name} ${ch}: empty glyph`);
                     const width = right - left + 1, height = bottom - top + 1;
-                    const stride = Math.ceil(width / 8);
+                    // Keep original mono bbox/bearings/advance. Store the same
+                    // two-pixel fringe used by docs/grayscale outside that bbox.
+                    const stride = Math.ceil((width + 4) / 4);
                     const advance = spec.name === 'TIME' ? (ch === ':' ? 64 : 120) : Math.ceil(measuredAdvance) + 2;
                     // TIME centers actual ink, not the font's asymmetric side bearings.
                     // VALUE retains native side bearings with one pixel padding per side.
@@ -70,31 +85,57 @@ const { chromium } = require('@playwright/test');
                     const bearing_y = top - baseline;
                     if (spec.name === 'TIME' && (bearing_x < 0 || bearing_x + width > advance))
                         throw new Error(`${spec.name} ${ch}: ink exceeds advance`);
-                    const bitmap = Array(stride * height).fill(0);
-                    for (let y = 0; y < height; ++y) for (let x = 0; x < width; ++x)
-                        if (rgba[((top + y) * canvas.width + left + x) * 4 + 3] >= 128)
-                            bitmap[y * stride + (x >> 3)] |= 0x80 >> (x & 7);
+                    const bitmap = Array(stride * (height + 4)).fill(0);
+                    for (let y = 0; y < height + 4; ++y) for (let x = 0; x < width + 4; ++x) {
+                        const a = rgba[((top + y - 2) * canvas.width + left + x - 2) * 4 + 3];
+                        bitmap[y * stride + (x >> 2)] |= coverage[a] << (6 - 2 * (x & 3));
+                    }
+                    // No visible quantized alpha may be lost outside the fringe.
+                    for (let y = 0; y < canvas.height; ++y) for (let x = 0; x < canvas.width; ++x)
+                        if ((x < left - 2 || x > right + 2 || y < top - 2 || y > bottom + 2) &&
+                            coverage[rgba[(y * canvas.width + x) * 4 + 3]])
+                            throw Error('Coverage outside stored fringe');
                     return { codepoint: ch.codePointAt(0), width, height, stride, advance,
                         bearing_x, bearing_y, measuredAdvance, bitmap };
                 }).sort((a, b) => a.codepoint - b.codepoint);
                 return { ...spec, glyphs };
             });
-        }, { base64: font.toString('base64'), specs });
+        }, { base64: font.toString('base64'), specs, coverage });
     } finally {
         await browser.close();
     }
 
-    // Validate packing and tight 1-bit bboxes independently of the Canvas scan.
+    const baseline = fs.readFileSync(process.env.CLOCK_FONT_MONO_BASELINE ||
+        path.join(__dirname, '../main/clock_font.c'), 'utf8');
+    const oldMono = baseline.includes('cropped 1-bit ink');
+    // Validate packing and original tight mono bboxes independently of Canvas.
     for (const f of fonts) for (const g of f.glyphs) {
-        const ink = (x, y) => g.bitmap[y * g.stride + (x >> 3)] & (0x80 >> (x & 7));
-        if (g.bitmap.length !== g.stride * g.height ||
+        const level = (x, y) => (g.bitmap[y * g.stride + (x >> 2)] >> (6 - 2 * (x & 3))) & 3;
+        const ink = (x, y) => level(x + 2, y + 2) >= 2;
+        if (g.bitmap.length !== g.stride * (g.height + 4) ||
             !Array.from({ length: g.width }, (_, x) => ink(x, 0)).some(Boolean) ||
             !Array.from({ length: g.width }, (_, x) => ink(x, g.height - 1)).some(Boolean) ||
             !Array.from({ length: g.height }, (_, y) => ink(0, y)).some(Boolean) ||
             !Array.from({ length: g.height }, (_, y) => ink(g.width - 1, y)).some(Boolean))
             throw new Error(`${f.name} U+${g.codepoint.toString(16)}: invalid tight bbox`);
-        for (let y = 0; y < g.height; ++y) for (let x = g.width; x < g.stride * 8; ++x)
-            if (ink(x, y)) throw new Error('Nonzero stride padding');
+        for (let y = 0; y < g.height + 4; ++y) for (let x = 0; x < g.stride * 4; ++x) {
+            if (x >= g.width + 4 && level(x, y)) throw Error('Nonzero stride padding');
+            if ((x < 2 || y < 2 || x >= g.width + 2 || y >= g.height + 2) && level(x, y) >= 2)
+                throw Error('Mono ink outside original bbox');
+        }
+        if (oldMono) {
+            const name = `${f.name.toLowerCase()}_${g.codepoint.toString(16)}`;
+            const match = baseline.match(new RegExp(`static const uint8_t ${name}\\[\\] = \\{([\\s\\S]*?)\\};`));
+            if (!match) throw Error(`Missing original glyph ${name}`);
+            const bytes = match[1].split(',').map(s => s.trim()).filter(Boolean).map(Number);
+            const metrics = baseline.match(new RegExp(`\\{0x${g.codepoint.toString(16).padStart(2, '0')}, ([^}]+), ${name}\\}`));
+            const old = metrics[1].split(',').map(Number);
+            if ([g.width, g.height, Math.ceil(g.width / 8), g.advance, g.bearing_x, g.bearing_y].some((v, i) => v !== old[i]))
+                throw Error(`Original metrics differ: ${name}`);
+            for (let y = 0; y < g.height; ++y) for (let x = 0; x < g.width; ++x)
+                if (ink(x, y) !== !!(bytes[y * old[2] + (x >> 3)] & (0x80 >> (x & 7))))
+                    throw Error(`Original mono pixel differs: ${name} ${x},${y}`);
+        }
         if (g.codepoint >= 48 && g.codepoint <= 57 &&
             (g.height < (f.name === 'TIME' ? 130 : 25) || g.height > (f.name === 'TIME' ? 170 : 40)))
             throw new Error('Unexpected native digit height');
@@ -102,8 +143,10 @@ const { chromium } = require('@playwright/test');
     const sourceNotice = ` * Noto Sans SC bitmap derivative, SIL OFL 1.1; see tools/OFL-NotoSansSC.txt.
  * Source: notofonts/noto-cjk Sans/Variable/TTF/Subset/NotoSansSC-VF.ttf
  * Input SHA256: ${sha}
- * Native Canvas rasterization: weight 400, TIME 200px, VALUE 40px; alpha >= 128.
- * No scaling/resampling; cropped 1-bit ink, MSB-first, row-major with zero padding.
+ * Native Canvas rasterization: weight 400, TIME 200px, VALUE 40px.
+ * MSB-first linear 2bpp coverage; alpha boundaries 43,128,213, gamma=1.
+ * Original alpha>=128 bbox/bearings retained; bitmap includes 2px fringe.
+ * All 256 alpha values verified; no scaling/resampling; zero stride padding.
 `;
     const header = `/* Generated by tools/generate_clock_font.cjs; do not hand edit.
 ${sourceNotice} */
@@ -116,6 +159,8 @@ ${sourceNotice} */
 extern "C" {
 #endif
 
+#define CLOCK_FONT_PADDING 2
+
 typedef enum { CLOCK_FONT_TIME, CLOCK_FONT_VALUE } clock_font_t;
 
 typedef struct {
@@ -125,7 +170,11 @@ typedef struct {
 } clock_glyph_t;
 
 /* Draw at (pen_x + bearing_x, baseline + bearing_y), then advance pen_x.
- * Width/height are tight ink bounds; stride is bytes per row; 1=ink.
+ * Width/height are ORIGINAL tight mono ink bounds; stride is bytes per row.
+ * Bitmap is (width+4)x(height+4), padded with zero coverage to byte alignment.
+ * Draw bitmap at (pen_x+bearing_x-2, baseline+bearing_y-2).
+ * Packed 2bpp MSB-first coverage 0..3; mono uses coverage>=2, gray uses all.
+ * Linear/ink-match have identical coverage for this font (gamma=1).
  * TIME: digits and '-' advance 120px; ':' advances 64px (HH:MM = 544px).
  * TIME ink is centered within advance; VALUE uses ceil(native advance)+2px.
  * Native baseline is preserved across glyphs. No runtime scaling is needed.
@@ -189,5 +238,6 @@ ${sourceNotice} */
 `;
     fs.writeFileSync(path.join(__dirname, '../main/clock_font.h'), header);
     fs.writeFileSync(path.join(__dirname, '../main/clock_font.c'), source);
+    if (oldMono) console.log('Verified all original clock mono pixels and all glyph metrics');
     console.log(`Total bitmap bytes: ${fonts.flatMap(f => f.glyphs).reduce((sum, g) => sum + g.bitmap.length, 0)}`);
 })().catch(err => { console.error(err); process.exitCode = 1; });

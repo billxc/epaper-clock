@@ -27,6 +27,7 @@
 # THE SOFTWARE.
  */
 #include "epaper_port.h"
+#include "frame_codec.h"
 #include "axp_prot.h"
 #include "driver/gpio.h"
 #include "driver/spi_master.h"
@@ -40,7 +41,7 @@ static spi_device_handle_t panel_spi;
 #define REG(cmd, ...) write_register(cmd, (const uint8_t[]){__VA_ARGS__}, \
                                     sizeof((const uint8_t[]){__VA_ARGS__}))
 
-void epaper_port_init(void)
+esp_err_t epaper_port_init(void)
 {
     const spi_bus_config_t bus = {
         .mosi_io_num = EPD_MOSI_PIN, .miso_io_num = -1,
@@ -66,6 +67,7 @@ void epaper_port_init(void)
     gpio_set_level(EPD_CS_PIN, 0); /* Dedicated bus: keep CS asserted. */
     gpio_set_level(EPD_DC_PIN, 0);
     gpio_set_level(EPD_RST_PIN, 1);
+    return ESP_OK;
 }
 
 /* Bulk SPI replaces upstream byte writes and per-row delays. */
@@ -102,29 +104,55 @@ static void reset(void)
     DELAY_MS(50);
 }
 
-static void wait_idle(void)
+static esp_err_t wait_idle(void)
 {
+    const TickType_t start = xTaskGetTickCount();
+    const TickType_t timeout = pdMS_TO_TICKS(20000);
     DELAY_MS(100);
     while (gpio_get_level(EPD_BUSY_PIN)) {
+        if ((TickType_t)(xTaskGetTickCount() - start) >= timeout) {
+            return ESP_ERR_TIMEOUT;
+        }
         DELAY_MS(20);
     }
+    return ESP_OK;
 }
 
-static void refresh(uint8_t mode)
+static esp_err_t refresh(uint8_t mode)
 {
     REG(0x22, mode);
     command(0x20);
-    wait_idle();
+    return wait_idle();
 }
 
-void EPD_Init(void)
+/* Keep encoding workspace small; reuse the same bulk SPI transport. */
+static void transfer_plane(const uint8_t *packed, epd_plane_t plane)
+{
+    uint8_t chunk[256];
+    for (size_t offset = 0; offset < EPD_SIZE_MONO;) {
+        size_t count = EPD_SIZE_MONO - offset;
+        if (count > sizeof(chunk)) {
+            count = sizeof(chunk);
+        }
+        for (size_t i = 0; i < count; ++i) {
+            size_t input = 2 * (offset + i);
+            chunk[i] = epd_encode_plane_byte(packed[input], packed[input + 1], plane);
+        }
+        transfer(1, chunk, count);
+        offset += count;
+    }
+}
+
+esp_err_t EPD_Init(void)
 {
     enapwrstate(ALDO3);
     DELAY_MS(10);
     reset();
-    wait_idle();
+    esp_err_t err = wait_idle();
+    if (err != ESP_OK) return err;
     command(0x12);
-    wait_idle();
+    err = wait_idle();
+    if (err != ESP_OK) return err;
     REG(0x18, 0x80);
     REG(0x0C, 0xAE, 0xC7, 0xC3, 0xC0, 0x80);
     REG(0x01, LE16(EPD_HEIGHT - 1), 0x02);
@@ -134,24 +162,64 @@ void EPD_Init(void)
     REG(0x45, LE16(EPD_HEIGHT - 1), LE16(0));
     REG(0x4E, LE16(0));
     REG(0x4F, LE16(0));
-    wait_idle();
+    return wait_idle();
 }
 
-void EPD_Display_Base(const UBYTE *Image)
+/* Manufacturer Init4GRAY sequence: controller-resident waveform, no LUT upload. */
+esp_err_t EPD_Init_4GRAY(void)
 {
-    command(0x24);
-    transfer(1, Image, EPD_SIZE_MONO);
-    command(0x26);
-    transfer(1, Image, EPD_SIZE_MONO);
-    refresh(0xF7);
+    enapwrstate(ALDO3);
+    DELAY_MS(10);
+    reset();
+    esp_err_t err = wait_idle();
+    if (err != ESP_OK) return err;
+    command(0x12);
+    err = wait_idle();
+    if (err != ESP_OK) return err;
+    REG(0x0C, 0xAE, 0xC7, 0xC3, 0xC0, 0x80);
+    REG(0x01, LE16(EPD_HEIGHT - 1), 0x02);
+    REG(0x11, 0x01);
+    REG(0x44, LE16(0), LE16(EPD_WIDTH - 1));
+    REG(0x45, LE16(EPD_HEIGHT - 1), LE16(0));
+    REG(0x4E, LE16(0));
+    REG(0x4F, LE16(0));
+    err = wait_idle();
+    if (err != ESP_OK) return err;
+    REG(0x3C, 0x01);
+    REG(0x18, 0x80);
+    REG(0x1A, 0x5A);
+    return ESP_OK;
 }
 
-void EPD_Display_Partial(const UBYTE *Image, UWORD Xstart, UWORD Ystart,
-                         UWORD Xend, UWORD Yend)
+esp_err_t EPD_Display_Base(const UBYTE *Image)
+{
+    if (!Image) return ESP_ERR_INVALID_ARG;
+    command(0x24);
+    transfer_plane(Image, EPD_PLANE_MONO);
+    command(0x26);
+    transfer_plane(Image, EPD_PLANE_MONO);
+    return refresh(0xF7);
+}
+
+esp_err_t EPD_Display_4Gray(const UBYTE *image2bpp)
+{
+    if (!image2bpp) return ESP_ERR_INVALID_ARG;
+    command(0x24);
+    transfer_plane(image2bpp, EPD_PLANE_GRAY_LOW);
+    DELAY_MS(1); /* Manufacturer inter-plane delay. */
+    command(0x26);
+    transfer_plane(image2bpp, EPD_PLANE_GRAY_HIGH);
+    return refresh(0xD7);
+}
+
+esp_err_t EPD_Display_Partial(const UBYTE *Image, UWORD Xstart, UWORD Ystart,
+                            UWORD Xend, UWORD Yend)
 {
     /* Legacy signature only; subwindows are outside this port's contract. */
-    ESP_ERROR_CHECK((Xstart == 0 && Ystart == 0 && Xend == EPD_WIDTH &&
-                     Yend == EPD_HEIGHT) ? ESP_OK : ESP_ERR_INVALID_ARG);
+    if (!Image || Xstart != 0 || Ystart != 0 || Xend != EPD_WIDTH ||
+        Yend != EPD_HEIGHT) {
+        return ESP_ERR_INVALID_ARG;
+    }
     reset();
     REG(0x18, 0x80);
     REG(0x3C, 0x80);
@@ -162,8 +230,8 @@ void EPD_Display_Partial(const UBYTE *Image, UWORD Xstart, UWORD Ystart,
     REG(0x4E, LE16(0));
     REG(0x4F, LE16(0));
     command(0x24);
-    transfer(1, Image, EPD_SIZE_MONO);
-    refresh(0xFF);
+    transfer_plane(Image, EPD_PLANE_MONO);
+    return refresh(0xFF);
 }
 
 void EPD_Sleep(void)

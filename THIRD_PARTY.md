@@ -39,10 +39,12 @@ example; it is cited as a hardware reference, not relicensed wholesale.
 
 ## Noto Sans SC bitmap font
 
-`main/ui_font.c` contains a 24×24 bitmap font generated from Noto Sans SC,
+`main/ui_font.c` contains 24×24 glyphs generated from Noto Sans SC,
 covering printable ASCII, common GB2312 Han characters and CJK punctuation.
+A shared 3-bit coverage-class resource maps to monochrome, linear four-gray,
+and contour-matched four-gray. These classes are not additional panel colors.
 `main/clock_font.c` contains native-size 200px time and 40px reading glyphs
-from the same font; the renderer does not enlarge a low-resolution bitmap.
+with 2-bit coverage from the same font; no low-resolution bitmap is enlarged.
 It is a SIL Open Font License 1.1 derivative, not covered by the root MIT grant.
 The full license is retained in `tools/OFL-NotoSansSC.txt`.
 

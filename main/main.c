@@ -21,6 +21,9 @@
 #include "sdcard_bsp.h"
 #include "epaper_port.h"
 #include "display.h"
+#include "frame_codec.h"
+#include "render_mode.h"
+#include "render_settings.h"
 #include "rtc.h"
 #include "network.h"
 #include "app_runtime.h"
@@ -144,9 +147,9 @@ static app_action_t synchronize(void)
 
 static app_action_t clock_mode(bool manual_start)
 {
-    esp_err_t mounted = cache_mount();
-    if (mounted != ESP_OK)
-        ESP_LOGW("clock", "SD cache unavailable: %s", esp_err_to_name(mounted));
+    // Four-gray full updates need no previous image; keep SD out of that path.
+    bool cache_attempted = false;
+    render_mode_t last_rendered_mode = render_mode_get();
     bool first = true;
     int last_minute = -1;
     int64_t awake_until = 0;
@@ -158,22 +161,36 @@ static app_action_t clock_mode(bool manual_start)
         }
         struct tm now;
         bool valid = rtc_read(&now);
-        if (first || now.tm_min != last_minute || clock_dirty) {
+        render_mode_t mode = render_mode_get();
+        if (first || now.tm_min != last_minute || clock_dirty || mode != last_rendered_mode) {
             bool synced = network_daily_sync();
             if (chosen_or(APP_NONE) != APP_NONE) {
                 cache_unmount();
                 return chosen_or(APP_CLOCK);
             }
             valid = rtc_read(&now);
-            bool full = (first && manual_start) || synced || clock_dirty || !valid || now.tm_min == 0 || now.tm_min == 30;
-            bool cached = cache_read(previous_frame, CLOCK_FRAME_SIZE);
+            if (mode == RENDER_MONO && !cache_attempted) {
+                esp_err_t mounted = cache_mount();
+                cache_attempted = true;
+                if (mounted != ESP_OK)
+                    ESP_LOGW("clock", "SD cache unavailable: %s", esp_err_to_name(mounted));
+            }
+            bool full = (first && manual_start) || synced || clock_dirty || !valid ||
+                now.tm_min == 0 || now.tm_min == 30 || mode != RENDER_MONO || mode != last_rendered_mode;
+            // The on-card v1 format remains 1bpp for old-firmware compatibility.
+            bool cached = !full && cache_read(previous_frame, CLOCK_MONO_FRAME_SIZE);
+            if (cached) epd_expand_mono(previous_frame, CLOCK_MONO_FRAME_SIZE);
             float temperature = NAN, humidity = NAN;
             if (SHTC3_GetEnvTemperatureHumidity(&temperature, &humidity) != 0)
                 temperature = humidity = NAN;
             clock_render(clock_frame, &now, valid, temperature, humidity, get_battery_power());
             app_ui_present_clock(cached ? previous_frame : NULL, clock_frame, full || !cached);
-            if (!cache_write(clock_frame, CLOCK_FRAME_SIZE))
-                ESP_LOGW("clock", "Unable to persist display cache");
+            if (mode == RENDER_MONO && app_ui_display_ok()) {
+                epd_encode_mono(clock_frame, previous_frame, CLOCK_MONO_FRAME_SIZE);
+                if (!cache_write(previous_frame, CLOCK_MONO_FRAME_SIZE))
+                    ESP_LOGW("clock", "Unable to persist display cache");
+            } else if (!app_ui_display_ok()) cache_invalidate();
+            last_rendered_mode = mode; // A gray->mono fallback forces a new full frame next tick.
             last_minute = now.tm_min;
             clock_dirty = false;
             // Give a manual boot five visible seconds AFTER its first refresh,
@@ -201,6 +218,7 @@ void app_main(void)
     setenv("TZ", CONFIG_CLOCK_TIMEZONE, 1);
     tzset();
     ESP_ERROR_CHECK(nvs_flash_init());
+    render_settings_init();
     i2c_master_init();
     axp_init();
     bool scheduled_start = rtc_alarm_pending();
@@ -208,6 +226,10 @@ void app_main(void)
     epaper_port_init();
     app_ui_init();
     bool force_initial = gpio_get_level(GPIO_NUM_4) == 0;
+    if (force_initial) {
+        esp_err_t reset = render_settings_restore_default();
+        if (reset != ESP_OK) ESP_LOGW("display", "Display default not persisted: %s", esp_err_to_name(reset));
+    }
     network_init();
     nvs_handle_t state;
     uint8_t ready = 0;
@@ -228,16 +250,18 @@ void app_main(void)
     // valid. A display-busy hang causes a watchdog reset and SDK rollback.
     // This runs only on the first OTA boot, never every minute.
     esp_ota_img_states_t boot_state;
+    bool boot_display_healthy = true;
     if (esp_ota_get_state_partition(esp_ota_get_running_partition(), &boot_state) == ESP_OK &&
         boot_state == ESP_OTA_IMG_PENDING_VERIFY) {
         ESP_ERROR_CHECK(esp_task_wdt_add(NULL));
         const char *checks[] = {"RTC 与显示初始化检查", "通过后确认新版本", "不要求网络、NTP 或 SD 可用"};
         app_ui_message("新固件启动验证", checks, 3);
+        boot_display_healthy = app_ui_display_ok();
         ESP_ERROR_CHECK(esp_task_wdt_delete(NULL));
     }
     // Confirm before any minute-cycle PMU shutdown. An unset RTC calendar,
     // absent optional SD and offline network are not boot-health failures.
-    if (!ota_boot_check(true)) {
+    if (!ota_boot_check(boot_display_healthy)) {
         const char *failure[] = {"无法确认新固件或回滚", "已停止正常时钟关机流程", "请连接 USB 恢复固件"};
         app_ui_message("升级恢复失败", failure, 3);
         vTaskDelay(portMAX_DELAY);

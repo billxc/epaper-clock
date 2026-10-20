@@ -3,7 +3,7 @@
 ## 范围
 
 按用户确定的方向：**只参考算法与硬件行为，不引入 FreeInk SDK、不迁移框架、不复制其驱动代码、LUT 或电压参数。**
-现有原生 ESP-IDF、PMU 分钟关机、三个业务模式和通信功能保持不变。当前仅研究，尚未修改固件。
+原生 ESP-IDF、PMU 分钟关机、三个业务模式和通信功能保留。后续已独立实现 [三项全局渲染](rendering.md)，未引入 FreeInk SDK；本文记录算法参考来源，不代表复用了它的驱动或外部波形。
 
 同板证据为已合并的 [FreeInk PR #79](https://github.com/Free-Ink/freeink-sdk/pull/79) 与 [板型实测记录](https://github.com/Free-Ink/freeink-sdk/blob/3fe3936d62e65274453b96589bcdac57105e8dd0/docs/waveshare-epaper-397-support.md)。
 本次还核对了主线固定版本 [`f9cc1bed`](https://github.com/Free-Ink/freeink-sdk/tree/f9cc1beda45f4d2d3dade69fc444165727424f53)，没有把旧 PR 的行为当作当前实现。

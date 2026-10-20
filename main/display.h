@@ -5,7 +5,10 @@
 #include <time.h>
 #define CLOCK_WIDTH 800
 #define CLOCK_HEIGHT 480
-#define CLOCK_FRAME_SIZE (CLOCK_WIDTH * CLOCK_HEIGHT / 8)
+/* All renderers output packed 2bpp, MSB first: 0 black, 1 dark gray,
+ * 2 light gray, 3 white. This format does not change in monochrome mode. */
+#define CLOCK_FRAME_SIZE (CLOCK_WIDTH * CLOCK_HEIGHT / 4)
+#define CLOCK_MONO_FRAME_SIZE (CLOCK_WIDTH * CLOCK_HEIGHT / 8)
 /* UTF-8. Eight visible lines, scrolling to keep selected visible; -1 means
  * no selection. Long lines clip at the right margin. Unknown glyphs -> box. */
 void screen_render(uint8_t *frame, const char *title,

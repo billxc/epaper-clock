@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>电子纸时钟管理</title>
 <style>
-:root{color-scheme:light dark;font-family:system-ui,sans-serif;line-height:1.6}body{max-width:760px;margin:auto;padding:20px}h1{font-size:1.7rem}section{border:1px solid #8887;border-radius:12px;padding:18px;margin:18px 0}.notice{border-left:4px solid #b77900;padding:12px;background:#bb880015}dl{display:grid;grid-template-columns:7em 1fr;gap:10px}dt{font-weight:bold}dd{margin:0;overflow-wrap:anywhere}button,input{font:inherit;box-sizing:border-box;min-height:44px;max-width:100%}button{padding:8px 16px;cursor:pointer;border:1px solid #888;border-radius:6px}button:disabled{cursor:wait;opacity:.6}.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}small{display:block;opacity:.8}#message,#ota-message{white-space:pre-wrap;overflow-wrap:anywhere;min-height:2em}progress{width:100%}@media(max-width:440px){body{padding:12px}section{padding:12px}dl{grid-template-columns:6em 1fr}.actions button{width:100%}}
+:root{color-scheme:light dark;font-family:system-ui,sans-serif;line-height:1.6}body{max-width:760px;margin:auto;padding:20px}h1{font-size:1.7rem}section{border:1px solid #8887;border-radius:12px;padding:18px;margin:18px 0}.notice{border-left:4px solid #b77900;padding:12px;background:#bb880015}dl{display:grid;grid-template-columns:7em 1fr;gap:10px}dt{font-weight:bold}dd{margin:0;overflow-wrap:anywhere}button,input,select{font:inherit;box-sizing:border-box;min-height:44px;max-width:100%}button{padding:8px 16px;cursor:pointer;border:1px solid #888;border-radius:6px}button:disabled{cursor:wait;opacity:.6}.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}small{display:block;opacity:.8}#message,#ota-message{white-space:pre-wrap;overflow-wrap:anywhere;min-height:2em}progress{width:100%}@media(max-width:440px){body{padding:12px}section{padding:12px}dl{grid-template-columns:6em 1fr}.actions button{width:100%}}
 </style>
 </head>
 <body>
@@ -24,6 +24,20 @@
 <dt>配置的 SSID</dt><dd id="ssid">—</dd>
 <dt>上次 NTP 校时</dt><dd id="sync">—</dd>
 </dl>
+</section>
+<section aria-labelledby="render-title">
+<h2 id="render-title">全局渲染设置</h2>
+<p>仅改变电子纸显示渲染，不改变初始化、时钟、管理三个业务模式。保存后无需重启或退出 LAN；默认无灰度。</p>
+<label for="render-mode">渲染方式：</label>
+<select id="render-mode">
+<option value="mono">无灰度</option>
+<option value="linear">线性灰度</option>
+<option value="ink_match">轮廓匹配四灰</option>
+</select>
+<div class="actions"><button id="save-render" type="button">保存渲染设置</button></div>
+<p>已保存：<span id="saved-render">无灰度</span>；当前生效：<span id="active-render">无灰度</span></p>
+<p id="render-warning" role="status" aria-live="polite"></p>
+<small>两种灰度都只有四级，区别是文字边缘的映射。灰阶为实验功能，效果和刷新稳定性待实机验证。灰阶刷新超时会回退无灰度；若回退保存失败，页面会提示下次启动可能重试灰阶。</small>
 </section>
 <section aria-labelledby="wifi-title">
 <h2 id="wifi-title">Wi-Fi 设置</h2>
@@ -50,10 +64,13 @@
 'use strict';
 const byId = id => document.getElementById(id);
 let busy = false, ended = false, upgrading = false, baselineBoot = null;
+let renderDirty = false;
+const renderNames = {mono:'无灰度', linear:'线性灰度', ink_match:'轮廓匹配四灰'};
+const canonicalRender = mode => Object.hasOwn(renderNames, mode) ? mode : 'mono';
 const message = text => { byId('message').textContent = text; };
 const otaMessage = text => { byId('ota-message').textContent = text; };
 function controls(disabled) {
-  document.querySelectorAll('button,input').forEach(el => { el.disabled = disabled; });
+  document.querySelectorAll('button,input,select').forEach(el => { el.disabled = disabled; });
 }
 async function request(path, body, timeout = 35000) {
   const options = {credentials: 'same-origin', cache: 'no-store', signal: AbortSignal.timeout(timeout)};
@@ -71,6 +88,14 @@ async function request(path, body, timeout = 35000) {
 function render(data) {
   baselineBoot = data.boot_id;
   byId('version').textContent = data.appversion || '未知';
+  // Old firmware/browser mocks lack these fields: retain the mono default.
+  const saved = canonicalRender(data.render_mode);
+  const active = canonicalRender(data.active_render_mode);
+  byId('saved-render').textContent = renderNames[saved];
+  byId('active-render').textContent = renderNames[active];
+  byId('render-warning').textContent = data.render_warning || '';
+  // Polling reports the device state but never clobbers an unsaved selection.
+  if (!renderDirty) byId('render-mode').value = saved;
   byId('rtc').textContent = data.rtc_time || '无有效时间';
   byId('valid').textContent = data.rtc_valid ? '有效' : '无效，建议校时';
   byId('connected').textContent = data.sta_connected ? '已连接' : '未连接';
@@ -117,6 +142,27 @@ async function command(path, exits) {
     if (!ended) { controls(false); void poll(); }
   }
 }
+byId('render-mode').addEventListener('change', () => { renderDirty = true; });
+byId('save-render').addEventListener('click', async event => {
+  if (!event.isTrusted || busy || ended) return;
+  const mode = byId('render-mode').value;
+  busy = true;
+  controls(true);
+  message('正在保存渲染设置…');
+  try {
+    const data = await request('/api/render-mode', {mode});
+    renderDirty = false;
+    render(data);
+    message(`渲染设置已保存：${renderNames[canonicalRender(data.render_mode)]}；当前生效：${renderNames[canonicalRender(data.active_render_mode)]}。不同则等待屏幕安全刷新，页面会自动更新。`);
+  } catch (error) {
+    // Keep the user's selection for retry, including after a 409 or NVS error.
+    renderDirty = true;
+    message(`渲染设置未确认保存：${error.message}。请查看已保存状态后重试。`);
+  } finally {
+    busy = false;
+    if (!ended) { controls(false); void poll(); }
+  }
+});
 // Only trusted, explicit user click/key events renew the session; no timers,
 // load events, pointer motion, focus, synthetic events or polling renew it.
 let lastActivity = -Infinity;
