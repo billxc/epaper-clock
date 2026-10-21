@@ -1,6 +1,6 @@
-import { BleTransport, serviceUUID } from './ble.mjs';
-import { bleLog, bleFailure } from './ble-log.mjs';
-import { Security1, cryptoCheck } from './security1.mjs';
+import { BleTransport, serviceUUID } from './ble.mjs?v=ble-feedback-1';
+import { bleLog, bleFailure } from './ble-log.mjs?v=ble-feedback-1';
+import { Security1, cryptoCheck } from './security1.mjs?v=ble-feedback-1';
 import { configRequest, configResponse, credentials, scanRequest, scanResponse, scanEntries, concat, uint, number } from './protocol.mjs';
 import { validatePop, localDateEpoch, phoneTime, requestControl, wifiOutcome } from './clock-control.mjs';
 

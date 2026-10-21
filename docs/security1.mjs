@@ -1,5 +1,5 @@
 import { bytes, blob, sessionRequest, sessionResponse, utf8 } from './protocol.mjs';
-import { bleLog, bleFailure } from './ble-log.mjs';
+import { bleLog, bleFailure } from './ble-log.mjs?v=ble-feedback-1';
 
 export function equal(a, b) {
   if (a.length !== b.length) return false;

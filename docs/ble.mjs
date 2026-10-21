@@ -1,5 +1,5 @@
 import { text } from './protocol.mjs';
-import { bleLog, bleFailure } from './ble-log.mjs';
+import { bleLog, bleFailure } from './ble-log.mjs?v=ble-feedback-1';
 export const DEFAULT_SERVICE = '1775244d-6b43-439b-877c-060f2d9bed07';
 export function serviceUUID(value) {
   const uuid = value.trim().toLowerCase();
