@@ -1,2 +1,3 @@
-idf_component_register(SRCS "sdcard_bsp.c" "ext4_cache.c" INCLUDE_DIRS "."
+idf_component_register(SRCS "sdcard_bsp.c" "fat_frame_cache.c" INCLUDE_DIRS "."
+                       REQUIRES fatfs
                        PRIV_REQUIRES sdmmc esp_driver_sdmmc)

@@ -61,4 +61,23 @@ BLE uses its `wifi_provisioning` / `protocomm` Security1 implementation.
 The Pages client implements the public protobuf wire protocol and Security1
 handshake; any additional source attribution is recorded alongside that client.
 
+## SDK FatFs and SDMMC drivers
+
+The optional SD frame cache links ESP-IDF v5.5.2's bundled FatFs R0.15
+w/patch2 (`components/fatfs/src/ff.c`, Copyright (C) 2022, ChaN) and its
+Unicode support. FatFs carries ChaN's permissive redistribution grant and
+AS-IS disclaimer in its source banners; it is **not** covered solely by the
+ESP-IDF Apache-2.0 license. No FatFs sources are copied into this repository.
+`components/sdcard_bsp/fatfs_exfat_config.h` overrides only exFAT enablement
+after loading the build SDK's configuration; heap LFN and UTF-8 are selected
+through SDK Kconfig. SDK files remain unmodified.
+
+The SDK's public diskio binding (`diskio_impl.h`, `diskio_sdmmc.h` and
+`diskio_sdmmc.c`) and SDMMC protocol/host drivers are Espressif code under
+Apache-2.0; `diskio.c` also retains its ChaN glue-module attribution.
+`tools/package_licenses.py` extracts the FatFs/Unicode, OS-port, diskio and
+SDMMC driver banners from the actual `IDF_PATH` into
+`build/licenses/FATFS-SDMMC-NOTICES.txt`, alongside `ESP-IDF-LICENSE` and any
+SDK `NOTICE`. These notices must accompany distributed firmware artifacts.
+
 Project code is MIT licensed; third-party notices take precedence for their files.
