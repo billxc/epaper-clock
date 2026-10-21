@@ -13,6 +13,7 @@ Waveshare **ESP32-S3-ePaper-3.97** 节能时钟，ESP-IDF **5.5.2**，16MB Flash
 - [OTA、首次刷入与回滚](docs/ota.md)
 - [LAN 全局渲染设置：无灰度／线性灰度／轮廓匹配四灰](docs/rendering.md)
 - [四灰模拟与算法评估记录](docs/grayscale-study.md)
+- [ext4 专用 SD 缓存：准备、格式与边界](docs/sd-cache.md)
 - [第三方来源与许可](THIRD_PARTY.md)
 
 ## 时钟画面
@@ -92,15 +93,18 @@ iPhone / iPad 普通浏览器通常不支持 Web Bluetooth；可用支持浏览�
 
 ## 日常节能与时间
 
-每分钟 RTC 冷启动 → 检查每日校时 → 采样/刷新 → 关闭屏幕 ALDO3 → 写缓存/卸载 SD → PMU 关机。
+每分钟 RTC 冷启动 → 检查每日校时 → 无灰度按需初始化 SD 并定位缓存 → 采样/刷新 → 关闭屏幕 ALDO3 → 无灰度成功后写缓存、释放 SD 主机 → PMU 关机。
 USB 供电时主控继续运行，可随时长按中键。无线只在所属任务中开启，不常驻 BLE / LAN。
 
 - 默认 08:00 后每日最多一次自动尝试；失败当天不紧密重试。STA 等待最多 15 秒，NTP 最多 10 秒，均支持菜单中断。
 - 手动立即对时不受当天尝试限制。诊断只查询，不写 RTC；手动时间写入后每日校时策略仍有效。
 - 无灰度的分钟唤醒沿用旧帧 + 新帧局刷，整点/半点及退出菜单按需全刷。两种灰阶使用厂家四灰整屏刷新，不与黑白局刷混用。
-- SD 根目录 `/epaper-clock-v1.bin` 保留为 48,000 字节黑白帧缓存；无卡时无灰度退回全刷，不格式化卡。灰阶无需旧帧，因此不挂载或读写缓存。屏幕断电保留图像，不等同于主控关机。
+- SD 使用受限 ext4 布局，根目录 `epaper-cache.bin` 是预先准备的 **64KiB 容器**，内含 512 字节头和 48,000 字节黑白帧。设备只读定位元数据、原位覆盖数据，不使用 FatFs 或完整 lwext4，不创建文件或格式化卡；4-bit SDMMC 最高 40MHz 不变。
+- 先在电脑上对已挂载的 ext4 根目录运行 `python3 tools/prepare_ext4_cache.py /挂载点`，正常卸载后再交给设备；布局限制、CRC 和掉电边界见 [SD 缓存说明](docs/sd-cache.md)。无卡、布局不支持或 CRC 失败均不用旧帧并全刷；显示失败只使缓存头失效，不删除容器。灰阶不初始化或读写卡。屏幕断电保留图像，不等同于主控关机。
 - Wi-Fi 配置保存为单个版本化 NVS 记录；分钟启动只读配置，不反复写 Flash。
 - 提供非阻塞 USB `TIME <UTC epoch>` 备用入口，连接数据线开机后可在主控运行期间使用 `tools/set_time.py`。
+
+ext4 缓存已通过实际 C 核心的本地文件镜像测试和 ESP-IDF 5.5.2 完整构建；实卡时序、掉电与功耗仍待验收。
 
 功耗没有实测值，不能保证续航天数。网页校验在手机/电脑，BLE 握手仅在设置，HTTP 认证仅在管理；
 主要待测耗电是无线开启时间、冷启动、SD 和刷屏，而非代码行数。
@@ -114,8 +118,8 @@ idf.py build
 idf.py -p /dev/ttyACM0 flash
 ```
 
-已验证固件 **`432d944`**：[CI 构建与下载](https://github.com/billxc/epaper-clock/actions/runs/39444638015)，产物名 `epaper-clock-firmware`。
-当前布局为 **7.5MiB × 2 OTA 槽**，尾部保留 896KiB 未分配空间。应用 **2.706MiB**，每槽剩余约 **4.794MiB**。
+[Firmware 构建与下载](https://github.com/billxc/epaper-clock/actions/workflows/firmware.yml)：选择最新成功的构建，产物名 `epaper-clock-firmware`。
+当前布局为 **7.5MiB × 2 OTA 槽**，尾部保留 896KiB 未分配空间。应用约 **2.689MiB**，每槽剩余约 **4.811MiB**。
 产物附带 `partitions.csv`：OTA A 位于 `0x20000`，OTA B 位于 `0x7a0000`，两槽大小均为 `0x780000`。
 首次通过 USB 安装完整文件组；日常 LAN OTA 只更新非运行应用槽，不修改分区表。
 

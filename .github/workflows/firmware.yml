@@ -2,7 +2,7 @@ name: Firmware
 on:
   push:
     branches: [main]
-    paths: ['main/**', 'components/**', 'CMakeLists.txt', 'sdkconfig.defaults', 'partitions.csv', 'docs/*.mjs', 'docs/index.html', 'tests/**', '.github/workflows/firmware.yml']
+    paths: ['main/**', 'components/**', 'CMakeLists.txt', 'sdkconfig.defaults', 'partitions.csv', 'docs/*.mjs', 'docs/index.html', 'tests/**', 'tools/prepare_ext4_cache.py', '.github/workflows/firmware.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -22,6 +22,8 @@ jobs:
           /tmp/menu-test
           cc -std=c11 -Wall -Wextra -Werror -Icomponents/epaper_port tests/frame_codec_test.c components/epaper_port/frame_codec.c -o /tmp/frame-codec-test
           /tmp/frame-codec-test
+          cc -std=c11 -O2 -Wall -Wextra -Werror -Icomponents/sdcard_bsp tests/ext4_cache_test.c components/sdcard_bsp/ext4_cache.c -o /tmp/ext4-cache-test
+          python3 tests/ext4_cache_image_test.py /tmp/ext4-cache-test
           cc -std=c11 -Wall -Wextra -Werror -Imain tests/display_test.c main/display.c main/ui_font.c main/clock_font.c main/render_mode.c -lm -o /tmp/display-test
           mkdir -p /tmp/ui-preview
           /tmp/display-test /tmp/ui-preview
@@ -47,6 +49,9 @@ jobs:
           idf.py merge-bin -o "$PWD/build/epaper-clock-factory.bin"
           python tools/package_licenses.py
           cp partitions.csv build/partitions.csv
+          mkdir -p build/sd-cache
+          cp tools/prepare_ext4_cache.py build/sd-cache/
+          cp docs/sd-cache.md build/sd-cache/README.md
       - uses: actions/upload-artifact@v4
         with:
           name: epaper-clock-firmware
@@ -60,3 +65,4 @@ jobs:
             build/flasher_args.json
             build/flash_args
             build/licenses/**
+            build/sd-cache/**

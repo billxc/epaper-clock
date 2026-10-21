@@ -1,6 +1,6 @@
 # USB 安装、LAN OTA 与回滚
 
-固件版本 `432d944` 已通过 ESP-IDF 构建、二进制分区表核验及公开 CI。**尚未完成真实设备刷入、OTA／断电／回滚验收。**
+固件已通过 ESP-IDF 5.5.2 构建、二进制分区表核验及软件测试。**尚未完成真实设备刷入、OTA／断电／回滚验收。**
 
 ## Flash 布局
 
@@ -17,8 +17,8 @@
 
 ## USB 安装
 
-[固件构建与下载](https://github.com/billxc/epaper-clock/actions/runs/39444638015) → Artifacts → `epaper-clock-firmware`。
-应用为 2,837,232 字节（2.706MiB），每槽剩余 5,027,088 字节（4.794MiB）；合并安装镜像为 2,968,304 字节。
+[Firmware 构建与下载](https://github.com/billxc/epaper-clock/actions/workflows/firmware.yml) → 最新成功构建 → Artifacts → `epaper-clock-firmware`。
+当前应用约 2.689MiB，每槽剩余约 4.811MiB；实际文件及大小以该构建产物为准。
 
 产物包括：
 
