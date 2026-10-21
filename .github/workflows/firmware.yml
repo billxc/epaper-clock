@@ -30,7 +30,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends exfatprogs
           mkdir -p /tmp/fatfs-sdk/src /tmp/fatfs-sdk/diskio
-          for source in ff.c ff.h ffunicode.c; do
+          for source in ff.c ff.h ffconf.h ffunicode.c; do
             curl --fail --location --retry 2 "https://raw.githubusercontent.com/espressif/esp-idf/v5.5.2/components/fatfs/src/$source" -o "/tmp/fatfs-sdk/src/$source"
           done
           curl --fail --location --retry 2 https://raw.githubusercontent.com/espressif/esp-idf/v5.5.2/components/fatfs/diskio/diskio.h -o /tmp/fatfs-sdk/diskio/diskio.h
