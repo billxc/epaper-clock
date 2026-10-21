@@ -29,12 +29,11 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends exfatprogs
-          mkdir -p /tmp/fatfs-sdk/src /tmp/fatfs-sdk/diskio
-          for source in ff.c ff.h ffconf.h ffunicode.c; do
+          mkdir -p /tmp/fatfs-sdk/src
+          for source in ff.c ff.h ffconf.h ffunicode.c diskio.h; do
             curl --fail --location --retry 2 "https://raw.githubusercontent.com/espressif/esp-idf/v5.5.2/components/fatfs/src/$source" -o "/tmp/fatfs-sdk/src/$source"
           done
-          curl --fail --location --retry 2 https://raw.githubusercontent.com/espressif/esp-idf/v5.5.2/components/fatfs/diskio/diskio.h -o /tmp/fatfs-sdk/diskio/diskio.h
-          cc -std=c11 -O2 -Wall -Wextra -Werror -include tests/fatfs_host_config.h -I/tmp/fatfs-sdk/src -I/tmp/fatfs-sdk/diskio -Icomponents/sdcard_bsp tests/fat_frame_cache_test.c components/sdcard_bsp/fat_frame_cache.c /tmp/fatfs-sdk/src/ff.c /tmp/fatfs-sdk/src/ffunicode.c -o /tmp/fat-frame-cache-test
+          cc -std=c11 -O2 -Wall -Wextra -Werror -include tests/fatfs_host_config.h -I/tmp/fatfs-sdk/src -Icomponents/sdcard_bsp tests/fat_frame_cache_test.c components/sdcard_bsp/fat_frame_cache.c /tmp/fatfs-sdk/src/ff.c /tmp/fatfs-sdk/src/ffunicode.c -o /tmp/fat-frame-cache-test
           python3 tests/fat_frame_cache_image_test.py /tmp/fat-frame-cache-test
       - uses: actions/upload-artifact@v4
         with:
