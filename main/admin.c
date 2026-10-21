@@ -9,6 +9,7 @@
 #include "esp_app_desc.h"
 #include "esp_system.h"
 #include "esp_random.h"
+#include "lan_password.h"
 #include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -408,7 +409,8 @@ app_action_t admin_run(void)
     s.network_mutex = xSemaphoreCreateMutex();
     active_session = &s;
     s.boot_id = esp_random();
-    ota_get_password_override(s.password);
+    char resume_password[17] = {0};
+    bool resuming = ota_get_password_override(resume_password);
     app_ui_set_mode(APP_LAN);
     if (!s.network_mutex) {
         const char *lines[] = {"内存不足，无法启动 HTTP", "长按中键选单；闲置五分钟回时钟"};
@@ -479,10 +481,11 @@ app_action_t admin_run(void)
                     esp_err_t err = network_start_management(&info);
                     if (cancelled(&s, frame, info.ip)) continue;
                     if (err == ESP_OK) {
-                        // Preserve password for the entire session, including
-                        // reconnects and recovery after an OTA/rollback boot.
-                        if (!s.password[0]) memcpy(s.password, info.password, sizeof(s.password));
-                        if (!authentication(&s)) err = ESP_FAIL;
+                        // RF supplies entropy only for the first initialization.
+                        // NVS errors or a conflicting OTA resume fail closed;
+                        // never serve with an ephemeral replacement password.
+                        err = lan_password_get(s.password, resuming ? resume_password : NULL);
+                        if (err == ESP_OK && !authentication(&s)) err = ESP_FAIL;
                         if (err == ESP_OK) err = start_server(&server, &s);
                     }
                     if (err == ESP_OK) {
@@ -512,6 +515,7 @@ app_action_t admin_run(void)
     if (s.network_mutex) vSemaphoreDelete(s.network_mutex);
     ota_management_finished();
     free(frame);
+    memset(resume_password, 0, sizeof(resume_password));
     memset(s.password, 0, sizeof(s.password));
     memset(s.auth, 0, sizeof(s.auth));
     return s.selected != APP_NONE ? s.selected : APP_CLOCK;

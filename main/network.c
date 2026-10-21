@@ -14,7 +14,6 @@
 #include "esp_log.h"
 #include "esp_netif.h"
 #include "esp_netif_sntp.h"
-#include "esp_random.h"
 #include "esp_wifi.h"
 #include "esp_wifi_default.h"
 #include "nvs.h"
@@ -431,15 +430,6 @@ esp_err_t network_start_management(clock_management_info_t *info)
         return err;
     }
     network_station_ip(info->ip, sizeof(info->ip));
-    // RF is active here, providing hardware entropy for the session password.
-    uint8_t random[8];
-    esp_fill_random(random, sizeof(random));
-    static const char hex[] = "0123456789abcdef";
-    for (unsigned i = 0; i < sizeof(random); ++i) {
-        info->password[2 * i] = hex[random[i] >> 4];
-        info->password[2 * i + 1] = hex[random[i] & 15];
-    }
-    info->password[16] = '\0';
     return ESP_OK;
 }
 

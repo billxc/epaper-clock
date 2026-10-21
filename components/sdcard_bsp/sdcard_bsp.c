@@ -23,11 +23,18 @@ static bool host_initialized;
 static bool disk_registered;
 static bool filesystem_registered;
 static bool cache_open_attempted;
+// Do not retry absent/faulty media at every menu redraw. Card changes require
+// poweroff; a new boot may try again, while successful mounts can be reopened.
+static esp_err_t mount_failure;
+// Once glass may have changed, a failed invalidate must not permit a stale
+// on-card header to be trusted later in this boot (even after remount).
+static bool baseline_trusted = true;
 
 esp_err_t cache_mount(void)
 {
     // Lifecycle operations are serialized by the caller (no VFS is installed).
     if (cache.opened) return ESP_OK;
+    if (mount_failure != ESP_OK) return mount_failure;
     if (host_initialized || disk_registered || filesystem_registered)
         return ESP_ERR_INVALID_STATE;
 
@@ -39,7 +46,10 @@ esp_err_t cache_mount(void)
     slot.clk = 16; slot.cmd = 17;
     slot.d0 = 15; slot.d1 = 7; slot.d2 = 8; slot.d3 = 18;
     esp_err_t result = sdmmc_host_init();
-    if (result != ESP_OK) return result;
+    if (result != ESP_OK) {
+        mount_failure = result;
+        return result;
+    }
     host_initialized = true;
     result = sdmmc_host_init_slot(host.slot, &slot);
     if (result != ESP_OK) goto fail;
@@ -82,22 +92,28 @@ esp_err_t cache_mount(void)
     return ESP_OK;
 
 fail:
+    mount_failure = result;
     cache_unmount();
     return result;
 }
 
 bool cache_read(uint8_t *frame, size_t size)
 {
-    return cache.opened && fat_frame_cache_read(&cache, frame, size);
+    return baseline_trusted && cache.opened && fat_frame_cache_read(&cache, frame, size);
 }
 
 bool cache_write(const uint8_t *frame, size_t size)
 {
-    return cache.opened && fat_frame_cache_write(&cache, frame, size);
+    bool written = cache.opened && fat_frame_cache_write(&cache, frame, size);
+    baseline_trusted = written;
+    return written;
 }
 
 void cache_invalidate(void)
 {
+    // Read eligibility is not proof of a durably invalid on-card header.
+    // Only the backend's successful-sync state may deduplicate this write.
+    baseline_trusted = false;
     if (cache.opened && !fat_frame_cache_invalidate(&cache))
         ESP_LOGW(TAG, "Unable to invalidate frame cache");
 }

@@ -1,4 +1,5 @@
 #include "ota.h"
+#include "lan_password.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -58,6 +59,15 @@ static esp_err_t store_record(const resume_record_t *value)
 void ota_management_finished(void)
 {
     if (!ota_resume_management() || ota_busy()) return;
+    // Force-initialize and leaving recovery must not discard the only copy of
+    // a legacy credential before adopting it. No entropy is needed: a resume
+    // credential is mandatory here. Conflicts/errors retain the transaction.
+    char legacy[17] = {0}, fixed[17] = {0};
+    if (!ota_get_password_override(legacy)) return;
+    esp_err_t credential = lan_password_get(fixed, legacy);
+    memset(legacy, 0, sizeof(legacy));
+    memset(fixed, 0, sizeof(fixed));
+    if (credential != ESP_OK) return;
     nvs_handle_t nvs;
     if (nvs_open("clock_ota", NVS_READWRITE, &nvs) != ESP_OK) return;
     esp_err_t err = nvs_erase_key(nvs, "resume");

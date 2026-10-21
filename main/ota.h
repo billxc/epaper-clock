@@ -9,10 +9,13 @@
 // False means confirmation/rollback failed: supervisor must not power off.
 bool ota_boot_check(bool healthy);
 bool ota_resume_management(void);
-// Same Basic password across new-image AND rollback boots. Never log this.
+// v1 transaction credential, checked against/adopted into the fixed NVS
+// credential before HTTP starts. Never log this.
 bool ota_get_password_override(char out[17]);
-// On leaving resumed management, remove the persisted credential/transaction.
-// Not called on a reboot requested by OTA. No writes on ordinary clock boots.
+// On leaving resumed management (or force-init), adopt/check its credential
+// before removing only the transaction; never erase the fixed credential.
+// On credential error retain the transaction. Not called on an OTA reboot.
+// No writes on ordinary clock boots.
 void ota_management_finished(void);
 
 typedef struct {

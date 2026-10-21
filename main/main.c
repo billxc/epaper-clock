@@ -22,6 +22,7 @@
 #include "epaper_port.h"
 #include "display.h"
 #include "frame_codec.h"
+#include "clock_refresh.h"
 #include "render_mode.h"
 #include "render_settings.h"
 #include "rtc.h"
@@ -175,20 +176,34 @@ static app_action_t clock_mode(bool manual_start)
                 if (mounted != ESP_OK)
                     ESP_LOGW("clock", "SD cache unavailable: %s", esp_err_to_name(mounted));
             }
-            bool full = (first && manual_start) || synced || clock_dirty || !valid ||
-                now.tm_min == 0 || now.tm_min == 30 || mode != RENDER_MONO || mode != last_rendered_mode;
-            // The SD cache stores 1bpp; expand it into the 2bpp application frame.
-            bool cached = !full && cache_read(previous_frame, CLOCK_MONO_FRAME_SIZE);
+            const char *reason = clock_full_refresh_reason(first, manual_start,
+                synced, clock_dirty, valid, now.tm_min, mode == RENDER_MONO,
+                mode != last_rendered_mode);
+            // A scheduled RTC minute boot is NOT a manual entry. With a valid
+            // mono cache it must take the differential path, even on first tick.
+            bool cached = !reason && cache_read(previous_frame, CLOCK_MONO_FRAME_SIZE);
+            if (!reason) {
+                if (cached) ESP_LOGI("clock", "Cache read: ok");
+                else {
+                    ESP_LOGW("clock", "Cache read: failed; full refresh required");
+                    reason = "cache_unavailable_or_invalid";
+                }
+            }
             if (cached) epd_expand_mono(previous_frame, CLOCK_MONO_FRAME_SIZE);
             float temperature = NAN, humidity = NAN;
             if (SHTC3_GetEnvTemperatureHumidity(&temperature, &humidity) != 0)
                 temperature = humidity = NAN;
             clock_render(clock_frame, &now, valid, temperature, humidity, get_battery_power());
-            app_ui_present_clock(cached ? previous_frame : NULL, clock_frame, full || !cached);
-            if (mode == RENDER_MONO && app_ui_display_ok()) {
+            if (!app_ui_menu_open())
+                ESP_LOGI("clock", "Refresh: %s (%s)", reason ? "full" : "partial",
+                         reason ? reason : "verified_mono_cache");
+            else ESP_LOGI("clock", "Refresh deferred: menu visible");
+            app_ui_present_clock(cached ? previous_frame : NULL, clock_frame, reason != NULL);
+            if (mode == RENDER_MONO && app_ui_clock_visible()) {
                 epd_encode_mono(clock_frame, previous_frame, CLOCK_MONO_FRAME_SIZE);
-                if (!cache_write(previous_frame, CLOCK_MONO_FRAME_SIZE))
-                    ESP_LOGW("clock", "Unable to persist display cache");
+                bool written = cache_write(previous_frame, CLOCK_MONO_FRAME_SIZE);
+                if (written) ESP_LOGI("clock", "Cache write: ok");
+                else ESP_LOGW("clock", "Cache write: failed");
             } else if (!app_ui_display_ok()) cache_invalidate();
             last_rendered_mode = mode; // A gray->mono fallback forces a new full frame next tick.
             last_minute = now.tm_min;
@@ -253,6 +268,12 @@ void app_main(void)
     bool boot_display_healthy = true;
     if (esp_ota_get_state_partition(esp_ota_get_running_partition(), &boot_state) == ESP_OK &&
         boot_state == ESP_OTA_IMG_PENDING_VERIFY) {
+        // Optional media discovery is outside the mandatory display watchdog
+        // budget. A failed mount is latched for this boot, not retried by UI.
+        if (render_mode_get() == RENDER_MONO) {
+            (void)cache_mount();
+            cache_invalidate();
+        }
         ESP_ERROR_CHECK(esp_task_wdt_add(NULL));
         const char *checks[] = {"RTC 与显示初始化检查", "通过后确认新版本", "不要求网络、NTP 或 SD 可用"};
         app_ui_message("新固件启动验证", checks, 3);

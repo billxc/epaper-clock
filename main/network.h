@@ -10,7 +10,6 @@ typedef struct {
 } clock_wifi_config_t;
 
 typedef struct {
-    char password[17]; // Ephemeral HTTP password, never the router password.
     char ip[16];
 } clock_management_info_t;
 
@@ -55,9 +54,8 @@ bool network_daily_sync(void);
 // Query, validate RTC year, then write PCF RTC and persist existing sync state.
 // Bypasses daily schedule; keeps the LAN/radio on for its caller.
 esp_err_t network_sync_now(void);
-// Retained admin entry point: connects and generates a NEW 16-hex password
-// with RF active. info must be non-NULL; input password is not reused.
-// Admin/OTA may overwrite it separately to reuse their own session password.
+// Connect with RF active and return the station IP. info must be non-NULL.
+// Management owns its separately persisted HTTP credential.
 esp_err_t network_start_management(clock_management_info_t *info);
 // Provisioning manager owns Wi-Fi start/connect between these calls (STA only).
 esp_err_t network_prepare_provisioning(void);

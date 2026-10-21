@@ -92,7 +92,10 @@ bool fat_frame_cache_open(fat_frame_cache_t *cache, const char *path)
 {
     FRESULT result;
     bool ready;
-    if (cache == NULL || path == NULL)
+    if (cache == NULL)
+        return false;
+    cache->invalid_synced = false;
+    if (path == NULL)
         return false;
     /* The caller supplies a fresh/closed context; opened is set only on success. */
     cache->opened = false;
@@ -145,10 +148,13 @@ bool fat_frame_cache_invalidate(fat_frame_cache_t *cache)
 {
     if (cache == NULL || !cache->opened)
         return false;
+    if (cache->invalid_synced)
+        return true;
     make_header(cache, false, 0u);
-    return f_lseek(&cache->file, 0u) == FR_OK &&
+    cache->invalid_synced = f_lseek(&cache->file, 0u) == FR_OK &&
            write_bytes(cache, FRAME_CACHE_HEADER_SIZE) &&
            f_sync(&cache->file) == FR_OK;
+    return cache->invalid_synced;
 }
 
 bool fat_frame_cache_write(fat_frame_cache_t *cache, const uint8_t *frame,
@@ -159,14 +165,21 @@ bool fat_frame_cache_write(fat_frame_cache_t *cache, const uint8_t *frame,
     if (cache == NULL || !cache->opened || frame == NULL ||
         size != FRAME_CACHE_FRAME_SIZE || !fat_frame_cache_invalidate(cache))
         return false;
-    /* invalidate leaves the file pointer at payload offset 512. */
+    /* An already-synced invalidation does not move the file pointer. Always
+     * position explicitly, including retries after partial payload writes. */
+    if (f_lseek(&cache->file, FRAME_CACHE_HEADER_SIZE) != FR_OK) {
+        cache->invalid_synced = false;
+        return false;
+    }
     while (remaining != 0u) {
         UINT count = remaining < FRAME_CACHE_IO_SIZE ?
                      (UINT)remaining : FRAME_CACHE_IO_SIZE;
         memcpy(cache->io, frame, count);
         crc = crc_ieee(crc, cache->io, count);
-        if (!write_bytes(cache, count))
+        if (!write_bytes(cache, count)) {
+            cache->invalid_synced = false;
             return false;
+        }
         frame += count;
         remaining -= count;
     }
@@ -175,6 +188,9 @@ bool fat_frame_cache_write(fat_frame_cache_t *cache, const uint8_t *frame,
      * the dirty file buffer BEFORE writing the header (FF_FS_TINY likewise
      * syncs the shared window). Final f_sync flushes metadata and CTRL_SYNC.
      * No per-chunk sync or writes beyond the payload are needed. */
+    /* Once a valid header may be buffered/written, a later invalidate must
+     * write and sync again, even when this commit fails. Clear BEFORE IO. */
+    cache->invalid_synced = false;
     if (f_lseek(&cache->file, 0u) != FR_OK)
         return false;
     make_header(cache, true, ~crc);
@@ -184,7 +200,10 @@ bool fat_frame_cache_write(fat_frame_cache_t *cache, const uint8_t *frame,
 
 void fat_frame_cache_close(fat_frame_cache_t *cache)
 {
-    if (cache == NULL || !cache->opened)
+    if (cache == NULL)
+        return;
+    cache->invalid_synced = false;
+    if (!cache->opened)
         return;
     FRESULT result = f_close(&cache->file);
     cache->opened = false;

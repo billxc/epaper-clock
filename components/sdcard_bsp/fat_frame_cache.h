@@ -13,6 +13,9 @@
 typedef struct {
     FIL file;
     bool opened;
+    /* This open handle successfully synced an invalid header. Never inferred
+     * from disk, retained across open/close, or trusted after write failure. */
+    bool invalid_synced;
     _Alignas(4) uint8_t io[FRAME_CACHE_IO_SIZE];
 } fat_frame_cache_t;
 

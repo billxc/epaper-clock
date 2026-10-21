@@ -5,6 +5,7 @@
 #include "render_settings.h"
 #include "esp_log.h"
 #include "epaper_port.h"
+#include "sdcard_bsp.h"
 #include "driver/gpio.h"
 #include "esp_err.h"
 #include "esp_heap_caps.h"
@@ -65,6 +66,13 @@ static void scan_keys(void *unused)
 static void present_panel(const uint8_t *image, const uint8_t *previous, bool full)
 {
     bool gray = render_mode_get() != RENDER_MONO;
+    // Invalidate BEFORE touching glass, including menus/messages and failed
+    // refreshes. A reset between panel transfer and cache commit must not
+    // leave the previous frame marked as matching the panel. Gray never uses SD.
+    if (!gray) {
+        (void)cache_mount();
+        cache_invalidate(); // Also forget the in-RAM baseline if mount failed.
+    }
     esp_err_t err = gray ? EPD_Init_4GRAY() : EPD_Init();
     if (err == ESP_OK) {
         if (gray) err = EPD_Display_4Gray(image);
@@ -78,7 +86,10 @@ static void present_panel(const uint8_t *image, const uint8_t *previous, bool fu
         ESP_LOGW("display", "Gray refresh failed, restoring monochrome: %s", esp_err_to_name(err));
         esp_err_t saved = render_settings_fallback();
         if (saved != ESP_OK) ESP_LOGW("display", "Unable to persist fallback: %s", esp_err_to_name(saved));
-        // A failed gray waveform has no usable differential baseline.
+        // A failed gray waveform has no usable differential baseline. The
+        // active mode is now mono, so invalidate any old mono cache as well.
+        (void)cache_mount();
+        cache_invalidate();
         err = EPD_Init();
         if (err == ESP_OK) err = EPD_Display_Base(image);
         EPD_Sleep();
@@ -93,6 +104,11 @@ static void draw_frame(const uint8_t *image)
 }
 
 bool app_ui_display_ok(void) { return display_ok; }
+
+bool app_ui_clock_visible(void)
+{
+    return app_ui_owner() && !model.open && panel_background && display_ok;
+}
 
 static void draw_menu(void)
 {

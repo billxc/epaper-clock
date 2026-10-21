@@ -32,6 +32,9 @@ void app_ui_discard_input(void);
 // Called after the LAN owner applies a mode and replaces the saved background.
 void app_ui_refresh_menu(void);
 bool app_ui_display_ok(void);
+// Immediately after present_clock: false when only the hidden background was
+// updated beneath a menu. Such a frame must not be persisted as panel state.
+bool app_ui_clock_visible(void);
 // Frames are packed 2bpp (0 black, 3 white), in the active render mode.
 // Preserve a background frame while the menu overlays it.
 void app_ui_present(const uint8_t *image, bool full);
