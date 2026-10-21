@@ -31,6 +31,7 @@
     <label for="pop">屏幕上的 6 位数字校验码（不是 Wi-Fi 密码）</label>
     <input id="pop" type="text" inputmode="numeric" pattern="[0-9]{6}" autocomplete="off" spellcheck="false" maxlength="6" placeholder="例如 042731">
     <div class="actions"><button id="connect" type="button" disabled>选择蓝牙设备并验证</button><button id="disconnect" type="button" disabled>断开并清空</button></div>
+    <p id="connection-feedback" class="connection-feedback" data-state="idle">尚未连接设备。系统蓝牙连接／配对完成后，还需完成六位码身份验证；验证结果会显示在这里。</p>
     <p>仅接受 Security1 + PoP；不会尝试 Security0 或无 PoP 降级。每次都由你在浏览器弹窗中选择设备。</p>
   </section>
   <section>
@@ -66,6 +67,7 @@
   </section>
   <section><h2>状态</h2><button id="refresh" type="button" disabled>刷新设备状态</button><p id="status" role="status" aria-live="polite">尚未连接设备。</p></section>
   <footer>
+    <p>连接排障：开发者工具 Console 可筛选 <code>[epaper-ble]</code>，查看当前阶段、读写长度、耗时和错误。日志不包含六位码、Wi-Fi 名称／密码、密钥或报文内容。</p>
     <p>凭据仅经 BLE 发给所选设备，不上传 GitHub、不写入 localStorage，不含分析/广告或远端脚本。GitHub Pages 仍会接收普通网页访问请求。关闭或断开页面会清空输入；JavaScript 内存不保证可安全擦除。请只在可信设备与可信页面上输入凭据。</p>
     <p>网页断开不是保存/设时成功证明，也不等于设备关闭 BLE。蓝牙管理默认连续 5 分钟无按键或主动 Wi-Fi/设时操作后回时钟，状态查询不续期；初始化的 BLE 活动窗口为 295 秒，暂停后仍在初始化，可中键重试或长按中键选单。页面不包含 LAN、NTP 或调试面板。详见 <a href="./clock-control.md">安全协议、API 与验收说明</a>。</p>
   </footer>

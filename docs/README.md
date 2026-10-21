@@ -64,6 +64,12 @@ SDK会临时用自己的Wi-Fi FLASH存储，退出时清理SDK层并保留应用
 标准GetStatus没有应用保存ACK；本版不再依靠它判成功。客户端也不再宣称拿到LAN IP就等于保存完成。
 字段、错误、RTC时间和复用语义以 [clock-control.md](clock-control.md) 为准。
 
+## 连接反馈与排障
+
+系统蓝牙连接／配对成功不等于 Security1 身份验证成功。连接按钮旁会依次显示 GATT 连接、服务与端点发现、六位码握手、首次状态读取；只有验证和状态读取完成后，Wi-Fi／时间设置区才启用。失败或单次 BLE 操作超过 20 秒会在同处显示阶段和原因，可断开后重新选择。
+
+开发者工具 Console 筛选 `[epaper-ble]` 可查看阶段、读写字节数、耗时、超时与断开。日志不记录 PoP、Wi-Fi 名称／密码、密钥、设备 ID 或报文内容。无需为此重刷固件；刷新网页即可使用日志。请不要把系统配对或模拟测试当成完整实机握手成功。
+
 ## 隐私
 
 无fetch/XHR/WebSocket上传、统计脚本或凭据持久化；CSP connect-src none。
@@ -83,7 +89,7 @@ python3 -m http.server 8000 --directory docs
 ```
 
 localhost可开发；其他机器访问普通LAN HTTP不是Web Bluetooth安全上下文，部署应使用HTTPS。
-本地21项Node测试已通过，另有浏览器mock覆盖配对、手动设时、保存ACK及断开清空。
+本地 Node 协议／传输测试已通过；另有浏览器 mock 覆盖连接阶段反馈、验证后控件启用、超时恢复和敏感输入不进入日志。可安装 `@playwright/test` 后运行 `node tools/test_ble_feedback.cjs`（若为全局包，设置对应 `NODE_PATH`）。这些不是实机 BLE 验收。
 ESP-IDF构建及原生C菜单/绘图测试也已通过CI。仍需真实BLE/GATT/MTU、路由器、重复设置、窗口结束及退出功耗验证。
 
 协议实现为依据公开规范独立编写，未打包社区库。曾检查的社区候选有未实现Security1或缺测试的版本，

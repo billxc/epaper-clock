@@ -1,4 +1,5 @@
 import { text } from './protocol.mjs';
+import { bleLog, bleFailure } from './ble-log.mjs';
 export const DEFAULT_SERVICE = '1775244d-6b43-439b-877c-060f2d9bed07';
 export function serviceUUID(value) {
   const uuid = value.trim().toLowerCase();
@@ -9,40 +10,56 @@ const valueBytes = view => new Uint8Array(view.buffer, view.byteOffset, view.byt
 export class BleTransport {
   // Called directly in click handler: no await before requestDevice.
   static choose(uuid) {
+    bleLog('device.choose', { service: uuid });
     return navigator.bluetooth.requestDevice({ filters: [{ services: [uuid] }] });
   }
-  constructor(device, onDisconnect) {
+  constructor(device, onDisconnect, onProgress = () => {}) {
     this.device = device; this.endpoints = new Map(); this.closed = false; this.busy = false;
-    this.listener = () => { this.close(); onDisconnect(); };
+    this.onProgress = onProgress;
+    this.listener = () => { bleLog('gatt.disconnected'); this.close(); onDisconnect(); };
     device.addEventListener('gattserverdisconnected', this.listener);
   }
-  async bounded(promise) {
+  async bounded(promise, stage, label) {
     let timer;
+    const started = performance.now();
+    this.onProgress(label);
+    bleLog(`${stage}.start`);
     try {
-      return await Promise.race([promise, new Promise((_, reject) => {
-        timer = setTimeout(() => { this.close(); reject(new Error('BLE 操作超时；会话已关闭，请重新选择设备')); }, 20000);
+      const result = await Promise.race([promise, new Promise((_, reject) => {
+        timer = setTimeout(() => {
+          this.close();
+          reject(new Error(`${label}超时（20 秒）；会话已关闭，请重新选择设备`));
+        }, 20000);
       })]);
+      bleLog(`${stage}.ok`, { elapsed_ms: Math.round(performance.now() - started) });
+      return result;
+    } catch (error) {
+      bleFailure(`${stage}.failed`, error, { elapsed_ms: Math.round(performance.now() - started) });
+      throw error;
     } finally { clearTimeout(timer); }
   }
   async open(uuid) {
     try {
       const connecting = this.device.gatt.connect();
       connecting.then(() => { if (this.closed) this.device.gatt.disconnect(); }, () => {});
-      const server = await this.bounded(connecting);
-      const service = await this.bounded(server.getPrimaryService(uuid));
-      const characteristics = await this.bounded(service.getCharacteristics());
-      for (const characteristic of characteristics) {
-        const descriptors = await this.bounded(characteristic.getDescriptors());
+      const server = await this.bounded(connecting, 'gatt.connect', '连接蓝牙 GATT');
+      const service = await this.bounded(server.getPrimaryService(uuid), 'gatt.service', '蓝牙已连接，读取设置服务');
+      const characteristics = await this.bounded(service.getCharacteristics(), 'gatt.characteristics', '设置服务已找到，发现特征');
+      bleLog('gatt.characteristics.discovered', { count: characteristics.length });
+      for (const [index, characteristic] of characteristics.entries()) {
+        const progress = `识别设置端点 ${index + 1}/${characteristics.length}`;
+        const descriptors = await this.bounded(characteristic.getDescriptors(), 'gatt.descriptors', progress);
         const descriptor = descriptors.find(d => d.uuid === '00002901-0000-1000-8000-00805f9b34fb');
+        bleLog('gatt.descriptors.discovered', { characteristic: characteristic.uuid, count: descriptors.length, has_endpoint_name: !!descriptor });
         if (!descriptor) continue;
-        const name = text.decode(valueBytes(await this.bounded(descriptor.readValue()))).toLowerCase();
+        const name = text.decode(valueBytes(await this.bounded(descriptor.readValue(), 'gatt.endpoint_name', progress))).toLowerCase();
         if (this.endpoints.has(name)) throw new Error('设备 endpoint 描述符重名');
         this.endpoints.set(name, characteristic);
+        bleLog('gatt.endpoint.discovered', { endpoint: name, read: characteristic.properties.read, write: characteristic.properties.write });
       }
-      for (const name of ['prov-session', 'prov-config']) {
-        this.requireEndpoint(name);
-      }
+      for (const name of ['prov-session', 'prov-config']) this.requireEndpoint(name);
       if (this.closed) throw new Error('BLE 连接已关闭');
+      bleLog('gatt.ready', { endpoints: [...this.endpoints.keys()] });
     } catch (error) { this.close(); throw error; }
   }
   requireEndpoint(name) {
@@ -60,14 +77,17 @@ export class BleTransport {
     if (data.length > 256) throw new Error('请求超过保守 GATT 长度上限');
     this.busy = true;
     try {
-      await this.bounded(c.writeValueWithResponse(data));
-      const result = valueBytes(await this.bounded(c.readValue()));
+      bleLog('gatt.write', { endpoint: name, bytes: data.length });
+      await this.bounded(c.writeValueWithResponse(data), 'gatt.write', `向 ${name} 发送请求`);
+      const result = valueBytes(await this.bounded(c.readValue(), 'gatt.read', `读取 ${name} 响应`));
+      bleLog('gatt.read', { endpoint: name, bytes: result.length });
       if (!result.length) throw new Error('设备返回空 BLE 响应');
       return result;
     } catch (error) { this.close(); throw error; }
     finally { this.busy = false; }
   }
   close() {
+    if (!this.closed) bleLog('gatt.close');
     this.closed = true; this.endpoints.clear();
     this.device.removeEventListener('gattserverdisconnected', this.listener);
     if (this.device.gatt?.connected) this.device.gatt.disconnect();

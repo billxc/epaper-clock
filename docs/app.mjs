@@ -1,14 +1,22 @@
 import { BleTransport, serviceUUID } from './ble.mjs';
+import { bleLog, bleFailure } from './ble-log.mjs';
 import { Security1, cryptoCheck } from './security1.mjs';
 import { configRequest, configResponse, credentials, scanRequest, scanResponse, scanEntries, concat, uint, number } from './protocol.mjs';
 import { validatePop, localDateEpoch, phoneTime, requestControl, wifiOutcome } from './clock-control.mjs';
 
 const $ = id => document.getElementById(id);
 let compatible = false, transport = null, session = null, busy = false, epoch = 0, expiry;
+let connectionPhase = '尚未连接设备';
+function connectionProgress(message, state = 'busy') {
+  connectionPhase = message;
+  $('connection-feedback').textContent = message;
+  $('connection-feedback').dataset.state = state;
+}
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const show = message => { $('status').textContent = message; };
 function controls() {
   $('connect').disabled = !compatible || busy || !!transport;
+  $('connect').textContent = session ? '设备已验证连接' : busy ? '正在连接并验证…' : '选择蓝牙设备并验证';
   $('disconnect').disabled = !transport && !busy;
   $('pop').disabled = $('service').disabled = busy || !!transport;
   $('wifi-fields').disabled = $('time-fields').disabled = busy || !session;
@@ -25,7 +33,8 @@ function close(message) {
   session?.destroy(); session = null;
   transport?.close(); transport = null;
   busy = false; clearInputs(); controls();
-  if (message) show(message);
+  bleLog('ui.session.closed');
+  if (message) { show(message); connectionProgress(message, 'closed'); }
 }
 function errorMessage(error) {
   if (error.name === 'NotFoundError') return '未选择设备，或设备不在管理模式/服务 UUID 不匹配。';
@@ -64,30 +73,50 @@ $('connect').addEventListener('click', async () => {
   try {
     uuid = serviceUUID($('service').value);
     pop = validatePop(pop);
-  } catch (error) { show(errorMessage(error)); return; }
+  } catch (error) {
+    bleFailure('ui.input_rejected', error);
+    show(errorMessage(error)); connectionProgress(errorMessage(error), 'error'); return;
+  }
   const mine = ++epoch;
-  busy = true; $('pop').value = ''; controls(); show('请在浏览器弹窗中明确选择你的设备…');
+  let connecting = true;
+  const progress = message => {
+    if (mine === epoch && connecting) connectionProgress(message);
+  };
+  busy = true; $('pop').value = ''; controls();
+  show('请在浏览器弹窗中明确选择你的设备…'); progress('等待你在浏览器弹窗中选择设备');
+  bleLog('ui.connection.start');
   try {
     // Keep this before any await: Web Bluetooth requires transient user activation.
     const device = await BleTransport.choose(uuid);
     if (mine !== epoch) return;
+    bleLog('device.selected');
+    progress('设备已选择，正在建立蓝牙连接');
     const current = new BleTransport(device, () => {
-      if (transport === current) close('BLE 已断开。已收到的保存/设时 ACK 仍然有效；断开本身不代表操作成功。请查看设备屏幕，需要时重新进入蓝牙管理。');
-    });
+      if (transport === current) close(`蓝牙已断开（${connectionPhase}）。已收到的保存/设时 ACK 仍然有效；断开本身不代表其它操作成功。请查看设备屏幕，需要时重新进入蓝牙管理。`);
+    }, progress);
     transport = current; controls();
     renewExpiry();
-    show('正在连接并验证设备，请稍候…');
     await current.open(uuid);
     current.requireEndpoint('clock-control');
     if (mine !== epoch) return;
-    const established = await Security1.establish((...args) => current.exchange(...args), pop);
+    const established = await Security1.establish((...args) => current.exchange(...args), pop, undefined, progress);
     if (mine !== epoch) { established.destroy(); return; }
     session = established;
+    progress('身份验证已通过，正在读取设备状态');
+    bleLog('control.initial_status.start');
     const status = await requestControl(established, 'status');
     if (mine !== epoch) return;
+    bleLog('control.initial_status.ok');
+    connectionProgress('验证完成，可以设置 Wi-Fi 和时间。下方两个设置区已启用。', 'ready');
     show(`设备已连接，可以设置 Wi-Fi 或时间。\n${deviceSummary(status)}`);
-  } catch (error) { if (mine === epoch) close(`连接失败：${errorMessage(error)}\n没有降级到 Security0。`); }
-  finally {
+  } catch (error) {
+    bleFailure('ui.connection.failed', error, { phase: connectionPhase });
+    if (mine === epoch) {
+      const message = `连接失败（${connectionPhase}）：${errorMessage(error)}\n会话已关闭，没有降级到 Security0。`;
+      close(message); connectionProgress(message, 'error');
+    }
+  } finally {
+    connecting = false;
     pop = '';
     if (mine === epoch) { $('pop').value = ''; busy = false; controls(); }
   }
@@ -202,6 +231,7 @@ $('networks').addEventListener('change', () => {
 window.addEventListener('pagehide', () => close());
 
 (async () => {
+  bleLog('capability.start');
   try {
     if (!window.isSecureContext || !['https:', 'http:'].includes(location.protocol)) throw new Error('需要 HTTPS（开发可用 localhost），不能直接打开本地文件');
     if (window.top !== window.self) throw new Error('请在独立标签页打开，不支持嵌入 iframe');
@@ -209,7 +239,12 @@ window.addEventListener('pagehide', () => close());
     if (navigator.bluetooth.getAvailability && !await navigator.bluetooth.getAvailability()) throw new Error('系统报告蓝牙不可用，请开启蓝牙/检查浏览器与驱动');
     await cryptoCheck();
     compatible = true;
+    bleLog('capability.ok');
     $('compatibility').textContent = '基础能力检测通过：Web Bluetooth、X25519、SHA-256、AES-CTR 可用。仍需连接实机验证 GATT / MTU 和固件兼容性。';
-  } catch (error) { $('compatibility').textContent = `当前不能使用：${errorMessage(error)}。请改用受支持的 Chrome / Edge 与 HTTPS 页面。`; }
+  } catch (error) {
+    bleFailure('capability.failed', error);
+    $('compatibility').textContent = `当前不能使用：${errorMessage(error)}。请改用受支持的 Chrome / Edge 与 HTTPS 页面。`;
+    connectionProgress('浏览器能力检测未通过，请查看上方提示。', 'error');
+  }
   controls();
 })();

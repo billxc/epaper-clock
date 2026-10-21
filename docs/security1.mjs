@@ -1,4 +1,5 @@
 import { bytes, blob, sessionRequest, sessionResponse, utf8 } from './protocol.mjs';
+import { bleLog, bleFailure } from './ble-log.mjs';
 
 export function equal(a, b) {
   if (a.length !== b.length) return false;
@@ -49,33 +50,49 @@ export class CtrStream {
 }
 
 export class Security1 {
-  static async establish(exchange, pop, subtle = globalThis.crypto.subtle) {
+  static async establish(exchange, pop, subtle = globalThis.crypto.subtle, onProgress = () => {}) {
     if (!pop || utf8.encode(pop).length > 256) throw new Error('请输入设备显示的 PoP（最多 256 字节）');
-    const pair = await subtle.generateKey({ name: 'X25519' }, false, ['deriveBits']);
-    const clientPublic = new Uint8Array(await subtle.exportKey('raw', pair.publicKey));
-    const first = sessionResponse(await exchange('prov-session', sessionRequest(0, bytes(1, clientPublic))), 1);
-    const devicePublic = blob(first, 2, true), random = blob(first, 3, true);
-    if (devicePublic.length !== 32 || random.length !== 16) throw new Error('设备 Security1 参数长度错误');
-    const rawKey = await sharedKey(subtle, pair.privateKey, devicePublic, pop);
-    let stream;
-    try { stream = await CtrStream.create(subtle, rawKey, random); }
-    finally { rawKey.fill(0); }
+    const started = performance.now();
     try {
-      const verify = await stream.update(devicePublic);
-      const response = sessionResponse(await exchange('prov-session', sessionRequest(2, bytes(2, verify))), 3);
-      const proof = blob(response, 3, true);
-      if (proof.length !== 32 || !equal(await stream.update(proof), clientPublic)) throw new Error('设备身份验证失败，请核对 PoP');
-      return new Security1(exchange, stream);
-    } catch (error) { stream.destroy(); throw error; }
+      onProgress('蓝牙端点已就绪，生成安全握手密钥');
+      bleLog('security1.key_exchange.start');
+      const pair = await subtle.generateKey({ name: 'X25519' }, false, ['deriveBits']);
+      const clientPublic = new Uint8Array(await subtle.exportKey('raw', pair.publicKey));
+      onProgress('验证六位码：安全握手 1/2');
+      const first = sessionResponse(await exchange('prov-session', sessionRequest(0, bytes(1, clientPublic))), 1);
+      bleLog('security1.hello.ok');
+      const devicePublic = blob(first, 2, true), random = blob(first, 3, true);
+      if (devicePublic.length !== 32 || random.length !== 16) throw new Error('设备 Security1 参数长度错误');
+      const rawKey = await sharedKey(subtle, pair.privateKey, devicePublic, pop);
+      let stream;
+      try { stream = await CtrStream.create(subtle, rawKey, random); }
+      finally { rawKey.fill(0); }
+      try {
+        onProgress('验证六位码：安全握手 2/2');
+        const verify = await stream.update(devicePublic);
+        const response = sessionResponse(await exchange('prov-session', sessionRequest(2, bytes(2, verify))), 3);
+        const proof = blob(response, 3, true);
+        if (proof.length !== 32 || !equal(await stream.update(proof), clientPublic)) throw new Error('设备身份验证失败，请核对 PoP');
+        bleLog('security1.verified', { elapsed_ms: Math.round(performance.now() - started) });
+        onProgress('六位码验证通过，安全会话已建立');
+        return new Security1(exchange, stream);
+      } catch (error) { stream.destroy(); throw error; }
+    } catch (error) {
+      bleFailure('security1.failed', error, { elapsed_ms: Math.round(performance.now() - started) });
+      throw error;
+    }
   }
   constructor(exchange, stream) { this.exchange = exchange; this.stream = stream; this.busy = false; }
   async request(endpoint, plaintext) {
     if (!this.stream || this.busy) throw new Error('安全会话不可用或正在执行请求');
     this.busy = true;
     try {
+      bleLog('secure.request', { endpoint, bytes: plaintext.length });
       const encrypted = await this.stream.update(plaintext);
       const response = await this.exchange(endpoint, encrypted);
-      return await this.stream.update(response);
+      const result = await this.stream.update(response);
+      bleLog('secure.response', { endpoint, bytes: result.length });
+      return result;
     } catch (error) {
       // Never retry a packet: bytes may already have been consumed on the peer.
       this.destroy(); throw error;

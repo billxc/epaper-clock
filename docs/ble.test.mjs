@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { BleTransport, DEFAULT_SERVICE } from './ble.mjs';
+import { bleFailure } from './ble-log.mjs';
 const view = bytes => new DataView(Uint8Array.from(bytes).buffer);
 function mockDevice(characteristics) {
   let connected = false;
@@ -45,4 +46,37 @@ test('BLE write failure closes session, does not retry or read', async () => {
   await assert.rejects(transport.exchange('prov-config', Uint8Array.of(1)), /write failed/);
   assert.equal(writes, 1); assert.equal(reads, 0); assert.equal(transport.closed, true);
   await assert.rejects(transport.exchange('prov-config', Uint8Array.of(1)), /BLE/);
+});
+test('BLE reports discovery progress and logs lengths without packet contents', async () => {
+  const messages = [], progress = [];
+  const info = console.info, error = console.error;
+  console.info = (...args) => messages.push(JSON.stringify(args));
+  console.error = (...args) => messages.push(JSON.stringify(args));
+  try {
+    const transport = new BleTransport(mockDevice([
+      characteristic('prov-session', 'session'), characteristic('prov-config', 'config'),
+    ]), () => {}, phase => progress.push(phase));
+    await transport.open(DEFAULT_SERVICE);
+    const packet = new TextEncoder().encode('never-log-ssid-or-password');
+    await transport.exchange('prov-config', packet);
+    bleFailure('test.failure', new Error('write failed'));
+    transport.close();
+    assert(progress.some(phase => phase.includes('蓝牙已连接')));
+    assert(progress.some(phase => phase.includes('识别设置端点')));
+    const log = messages.join('\n');
+    for (const event of ['gatt.connect.ok', 'gatt.endpoint.discovered', 'gatt.write', 'gatt.read', 'test.failure'])
+      assert(log.includes(event), event);
+    assert(log.includes('elapsed_ms'));
+    assert(!log.includes('never-log-ssid-or-password'));
+    assert(!log.includes(JSON.stringify([...packet])));
+  } finally { console.info = info; console.error = error; }
+});
+test('BLE timeout identifies the stalled stage and closes the transport', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const transport = new BleTransport(mockDevice([]), () => {});
+  const pending = transport.bounded(new Promise(() => {}), 'gatt.test', '读取测试响应');
+  const rejected = assert.rejects(pending, /读取测试响应超时（20 秒）/);
+  t.mock.timers.tick(20000);
+  await rejected;
+  assert.equal(transport.closed, true);
 });
