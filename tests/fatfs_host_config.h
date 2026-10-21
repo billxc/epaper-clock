@@ -66,7 +66,10 @@
 #define FF_FS_LOCK 0
 #define FF_FS_REENTRANT 0
 #define FF_FS_TIMEOUT 1000
-/* ESP-IDF extension, deliberately static sector buffers for this host ABI. */
+/* ESP-IDF extension. Default static ABI; lifecycle tests also build with =1
+ * to verify ownership/release of dynamic FIL and FATFS sector buffers. */
+#ifndef FF_USE_DYN_BUFFER
 #define FF_USE_DYN_BUFFER 0
+#endif
 
 #endif

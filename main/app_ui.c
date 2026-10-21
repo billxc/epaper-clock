@@ -70,8 +70,7 @@ static void present_panel(const uint8_t *image, const uint8_t *previous, bool fu
     // refreshes. A reset between panel transfer and cache commit must not
     // leave the previous frame marked as matching the panel. Gray never uses SD.
     if (!gray) {
-        (void)cache_mount();
-        cache_invalidate(); // Also forget the in-RAM baseline if mount failed.
+        cache_invalidate(); // Fresh SD session; also forget the RAM baseline.
     }
     esp_err_t err = gray ? EPD_Init_4GRAY() : EPD_Init();
     if (err == ESP_OK) {
@@ -88,7 +87,6 @@ static void present_panel(const uint8_t *image, const uint8_t *previous, bool fu
         if (saved != ESP_OK) ESP_LOGW("display", "Unable to persist fallback: %s", esp_err_to_name(saved));
         // A failed gray waveform has no usable differential baseline. The
         // active mode is now mono, so invalidate any old mono cache as well.
-        (void)cache_mount();
         cache_invalidate();
         err = EPD_Init();
         if (err == ESP_OK) err = EPD_Display_Base(image);

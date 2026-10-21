@@ -106,16 +106,19 @@ static app_action_t show_result(const char *title, const char *const *lines,
 
 static app_action_t diagnose(void)
 {
-    const char *start[] = {"正在连接已保存的 Wi-Fi", "长按中键可以打开菜单"};
+    // Explicit diagnostic may access SD in any render mode. Its page changes
+    // glass, so attempt durable formal-baseline invalidation BEFORE drawing.
+    cache_invalidate();
+    const char *start[] = {"正在检测 Wi-Fi / NTP 与 TF 缓存", "检测期间不要插拔 TF 卡"};
     app_ui_message("本机自动调试", start, 2);
     esp_err_t wifi = network_connect();
-    char ip[16] = "", ssid_line[80], ip_line[48], wifi_line[64], ntp_line[64], time_line[64];
+    char ip[16] = "", ssid_line[80], wifi_line[96], ntp_line[64], time_line[64];
     clock_wifi_config_t config;
     network_get_config(&config);
     snprintf(ssid_line, sizeof(ssid_line), "SSID: %s", config.ssid[0] ? config.ssid : "未配置");
     network_station_ip(ip, sizeof(ip));
-    snprintf(ip_line, sizeof(ip_line), "IP: %s", ip[0] ? ip : "未取得");
-    snprintf(wifi_line, sizeof(wifi_line), "Wi-Fi: %s", wifi == ESP_OK ? "连接成功" : esp_err_to_name(wifi));
+    snprintf(wifi_line, sizeof(wifi_line), "Wi-Fi: %s  IP: %s",
+             wifi == ESP_OK ? "成功" : esp_err_to_name(wifi), ip[0] ? ip : "无");
     time_t epoch = 0;
     esp_err_t ntp = wifi == ESP_OK ? network_query_time(&epoch) : ESP_ERR_INVALID_STATE;
     snprintf(ntp_line, sizeof(ntp_line), "NTP: %s", wifi != ESP_OK ? "未执行" : ntp == ESP_OK ? "响应成功" : esp_err_to_name(ntp));
@@ -128,8 +131,22 @@ static app_action_t diagnose(void)
     }
     network_stop();
     if (chosen_or(APP_NONE) != APP_NONE) return chosen_or(APP_CLOCK);
-    const char *results[] = {wifi_line, ssid_line, ip_line, ntp_line, time_line, "仅检测，不修改 RTC 或配置", "中键返回选单"};
-    return show_result("本机自动调试结果", results, 7, true);
+    cache_diagnostic_t sd;
+    cache_diagnose(clock_frame, previous_frame, CLOCK_MONO_FRAME_SIZE, &sd);
+    char sd_line[96], io_line[96];
+    ESP_LOGW("sd_diag", "init=%d mount=%s fs=%s create=%d write=%d read_crc=%d compare=%d cleanup=%d; IO only, not EPD validation",
+             sd.initialized, esp_err_to_name(sd.mount), sd.filesystem ? sd.filesystem : "unknown",
+             sd.created, sd.written, sd.read_crc, sd.compared, sd.removed);
+    snprintf(sd_line, sizeof(sd_line), "TF 初始化: %s  FS: %s", sd.initialized ? "成功" : "失败/待重试",
+             sd.mount == ESP_OK ? sd.filesystem : esp_err_to_name(sd.mount));
+    snprintf(io_line, sizeof(io_line), "TF 写 / 读CRC / 比较: %s / %s / %s",
+             sd.written ? "成功" : "失败", sd.read_crc ? "成功" : "失败", sd.compared ? "成功" : "失败");
+    const char *results[] = {wifi_line, ssid_line, ntp_line, time_line,
+        sd_line, io_line,
+        !sd.created ? "测试文件未新建（已有同名或 IO 失败）" :
+        sd.removed ? "本次测试文件已清理" : "测试文件保留，未尝试恢复或删除",
+        "仅 IO 非局刷；不改 RTC/配置；中键返回"};
+    return show_result("本机自动调试结果", results, sizeof(results) / sizeof(results[0]), true);
 }
 
 static app_action_t synchronize(void)
@@ -149,7 +166,6 @@ static app_action_t synchronize(void)
 static app_action_t clock_mode(bool manual_start)
 {
     // Four-gray full updates need no previous image; keep SD out of that path.
-    bool cache_attempted = false;
     render_mode_t last_rendered_mode = render_mode_get();
     bool first = true;
     int last_minute = -1;
@@ -170,12 +186,6 @@ static app_action_t clock_mode(bool manual_start)
                 return chosen_or(APP_CLOCK);
             }
             valid = rtc_read(&now);
-            if (mode == RENDER_MONO && !cache_attempted) {
-                esp_err_t mounted = cache_mount();
-                cache_attempted = true;
-                if (mounted != ESP_OK)
-                    ESP_LOGW("clock", "SD cache unavailable: %s", esp_err_to_name(mounted));
-            }
             const char *reason = clock_full_refresh_reason(first, manual_start,
                 synced, clock_dirty, valid, now.tm_min, mode == RENDER_MONO,
                 mode != last_rendered_mode);
@@ -269,11 +279,8 @@ void app_main(void)
     if (esp_ota_get_state_partition(esp_ota_get_running_partition(), &boot_state) == ESP_OK &&
         boot_state == ESP_OTA_IMG_PENDING_VERIFY) {
         // Optional media discovery is outside the mandatory display watchdog
-        // budget. A failed mount is latched for this boot, not retried by UI.
-        if (render_mode_get() == RENDER_MONO) {
-            (void)cache_mount();
-            cache_invalidate();
-        }
+        // budget. Transient failures may retry on a later request after 5s.
+        if (render_mode_get() == RENDER_MONO) cache_invalidate();
         ESP_ERROR_CHECK(esp_task_wdt_add(NULL));
         const char *checks[] = {"RTC 与显示初始化检查", "通过后确认新版本", "不要求网络、NTP 或 SD 可用"};
         app_ui_message("新固件启动验证", checks, 3);

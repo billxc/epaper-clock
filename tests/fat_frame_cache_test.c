@@ -381,9 +381,7 @@ int main(int argc, char **argv)
                 fprintf(stderr, "CACHE_INVALIDATE_FAIL\n");
                 code = 6;
             }
-            /* close() has no status in the public API: explicitly check sync. */
-            if (f_sync(&cache.file) != FR_OK && !code) code = 7;
-            fat_frame_cache_close(&cache);
+            if (!fat_frame_cache_close(&cache) && !code) code = 7;
         }
     }
     if (f_mount(NULL, "0:", 0) != FR_OK && !code) code = 7;

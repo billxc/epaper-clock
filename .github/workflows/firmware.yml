@@ -41,6 +41,10 @@ jobs:
           python3 tests/fat_frame_cache_image_test.py /tmp/fat-frame-cache-test
           cc -std=c11 -Wall -Wextra -Werror -include tests/fatfs_host_config.h -I/tmp/fatfs-sdk/src -Icomponents/sdcard_bsp tests/fat_frame_cache_state_test.c -o /tmp/fat-cache-state-test
           /tmp/fat-cache-state-test
+          for dynamic in 0 1; do
+            cc -std=c11 -O2 -Wall -Wextra -Werror -DFF_USE_DYN_BUFFER=$dynamic -include tests/fatfs_host_config.h -Itests/sdcard_stubs -I/tmp/fatfs-sdk/src -Icomponents/sdcard_bsp tests/sdcard_lifecycle_test.c components/sdcard_bsp/sdcard_bsp.c components/sdcard_bsp/fat_frame_cache.c /tmp/fatfs-sdk/src/ff.c /tmp/fatfs-sdk/src/ffunicode.c -o /tmp/sd-lifecycle-test
+            python3 tests/sdcard_lifecycle_image_test.py /tmp/fat-frame-cache-test /tmp/sd-lifecycle-test
+          done
       - uses: actions/upload-artifact@v4
         with:
           name: ui-render-preview

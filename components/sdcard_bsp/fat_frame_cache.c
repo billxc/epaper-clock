@@ -104,18 +104,44 @@ bool fat_frame_cache_open(fat_frame_cache_t *cache, const char *path)
         result = f_open(&cache->file, path, FA_READ | FA_WRITE | FA_CREATE_NEW);
         if (result != FR_OK)
             return false;
+        cache->handle_opened = true;
         ready = create_container(cache);
     } else {
         if (result != FR_OK)
             return false;
+        cache->handle_opened = true;
         ready = f_size(&cache->file) == FRAME_CACHE_FILE_SIZE &&
                 read_bytes(cache, FRAME_CACHE_HEADER_SIZE) &&
                 header_identity(cache->io);
     }
-    if (!ready && f_close(&cache->file) != FR_OK)
-        return false;
+    if (!ready) fat_frame_cache_abandon(cache);
     cache->opened = ready;
     return ready;
+}
+
+bool fat_frame_cache_create(fat_frame_cache_t *cache, const char *path)
+{
+    if (!cache || !path) return false;
+    cache->opened = cache->invalid_synced = false;
+    if (f_open(&cache->file, path, FA_READ | FA_WRITE | FA_CREATE_NEW) != FR_OK)
+        return false;
+    cache->handle_opened = true;
+    cache->opened = create_container(cache);
+    if (!cache->opened) fat_frame_cache_abandon(cache);
+    return cache->opened;
+}
+
+void fat_frame_cache_abandon(fat_frame_cache_t *cache)
+{
+    if (!cache) return;
+#if !FF_FS_TINY && FF_USE_DYN_BUFFER
+    /* SDK 5.5.2 f_open allocates FIL.buf; failed f_close does not free it.
+     * f_mount(NULL) separately frees FATFS.win and clears share locks/mutex.
+     * LFN/exFAT dir buffers are operation-local and freed by FatFs itself. */
+    if (cache->handle_opened && cache->file.buf) ff_memfree(cache->file.buf);
+#endif
+    memset(&cache->file, 0, sizeof(cache->file));
+    cache->opened = cache->handle_opened = cache->invalid_synced = false;
 }
 
 bool fat_frame_cache_read(fat_frame_cache_t *cache, uint8_t *frame, size_t size)
@@ -198,17 +224,16 @@ bool fat_frame_cache_write(fat_frame_cache_t *cache, const uint8_t *frame,
            f_sync(&cache->file) == FR_OK;
 }
 
-void fat_frame_cache_close(fat_frame_cache_t *cache)
+bool fat_frame_cache_close(fat_frame_cache_t *cache)
 {
     if (cache == NULL)
-        return;
+        return false;
     cache->invalid_synced = false;
     if (!cache->opened)
-        return;
+        return !cache->handle_opened;
     FRESULT result = f_close(&cache->file);
-    cache->opened = false;
-    /* This void interface cannot report close failure; never retry writes or
-     * repair/delete the container on a failing volume. */
-    if (result != FR_OK)
-        return;
+    if (result == FR_OK) cache->handle_opened = false; /* SDK freed FIL.buf. */
+    /* Failed close may retain a dirty buffer: free it, never retry its sync. */
+    fat_frame_cache_abandon(cache);
+    return result == FR_OK;
 }

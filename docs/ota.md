@@ -18,7 +18,7 @@
 ## USB 安装
 
 [Firmware 构建与下载](https://github.com/billxc/epaper-clock/actions/workflows/firmware.yml) → 最新成功构建 → Artifacts → `epaper-clock-firmware`。
-当前应用约 2.704MiB，每槽剩余约 4.796MiB；实际文件及大小以该构建产物为准。
+当前应用约 2.707MiB，每槽剩余约 4.793MiB；实际文件及大小以该构建产物为准。
 
 产物包括：
 
