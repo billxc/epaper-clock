@@ -122,7 +122,7 @@ idf.py -p /dev/ttyACM0 flash
 ```
 
 [Firmware 构建与下载](https://github.com/billxc/epaper-clock/actions/workflows/firmware.yml)：选择最新成功的构建，产物名 `epaper-clock-firmware`。
-当前布局为 **7.5MiB × 2 OTA 槽**，尾部保留 896KiB 未分配空间。应用约 **2.707MiB**，每槽剩余约 **4.793MiB**。
+当前布局为 **7.5MiB × 2 OTA 槽**，尾部保留 896KiB 未分配空间。应用约 **2.708MiB**，每槽剩余约 **4.792MiB**。
 产物附带 `partitions.csv`：OTA A 位于 `0x20000`，OTA B 位于 `0x7a0000`，两槽大小均为 `0x780000`。
 首次通过 USB 安装完整文件组；日常 LAN OTA 只更新非运行应用槽，不修改分区表。
 

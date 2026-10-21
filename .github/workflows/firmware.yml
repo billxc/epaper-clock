@@ -20,6 +20,8 @@ jobs:
           node --test docs/*.test.mjs
           cc -std=c11 -Wall -Wextra -Werror -Imain tests/menu_test.c main/menu_model.c -o /tmp/menu-test
           /tmp/menu-test
+          cc -std=c11 -Wall -Wextra -Werror -Itests/app_ui_stubs -Imain -Icomponents/epaper_port tests/app_ui_test.c main/app_ui.c main/menu_model.c main/render_mode.c -o /tmp/app-ui-test
+          /tmp/app-ui-test
           cc -std=gnu11 -Wall -Wextra -Werror -Itests/lan_password_stubs -Imain tests/lan_password_test.c -o /tmp/lan-password-test
           /tmp/lan-password-test
           cc -std=gnu11 -Wall -Wextra -Werror -Imain tests/clock_refresh_test.c -o /tmp/clock-refresh-test

@@ -23,6 +23,10 @@ static QueueHandle_t inputs;
 static menu_keys_t keys;
 static menu_model_t model;
 static uint8_t *background, *canvas;
+/* Menu glass baseline, never the hidden clock/background or render scratch.
+ * Owned for the UI lifetime; only a successful mono menu transfer commits it. */
+static uint8_t *menu_previous;
+static bool menu_previous_valid;
 static bool have_background, panel_background, display_ok;
 static uint32_t menu_last_activity;
 #define MENU_IDLE_MS 30000U
@@ -66,6 +70,9 @@ static void scan_keys(void *unused)
 static void present_panel(const uint8_t *image, const uint8_t *previous, bool full)
 {
     bool gray = render_mode_get() != RENDER_MONO;
+    /* Any attempted panel write (including a failed one) consumes menu trust.
+     * draw_menu alone may establish it again after a successful mono update. */
+    menu_previous_valid = false;
     // Invalidate BEFORE touching glass, including menus/messages and failed
     // refreshes. A reset between panel transfer and cache commit must not
     // leave the previous frame marked as matching the panel. Gray never uses SD.
@@ -110,6 +117,8 @@ bool app_ui_clock_visible(void)
 
 static void draw_menu(void)
 {
+    bool mono = render_mode_get() == RENDER_MONO;
+    if (!mono) menu_previous_valid = false;
     if (model.confirming) {
         const char *lines[] = {"取消，返回选单", "确认，进入初始化／配网"};
         screen_render(canvas, "是否进入初始化／配网？", lines, 2, model.confirm_yes ? 1 : 0);
@@ -118,7 +127,16 @@ static void draw_menu(void)
         for (unsigned i = 0; i < MENU_ITEM_COUNT; ++i) lines[i] = menu_model_label(i);
         screen_render(canvas, "模式选单", lines, MENU_ITEM_COUNT, (int)model.selected);
     }
-    draw_frame(canvas);
+    if (menu_previous_valid && memcmp(menu_previous, canvas, CLOCK_FRAME_SIZE) == 0)
+        return;
+    present_panel(canvas, menu_previous_valid ? menu_previous : NULL,
+                  !menu_previous_valid);
+    /* Gray fallback may succeed in mono, but it is not a trusted mono menu
+     * render. Require a fresh mono full frame on the next menu redraw. */
+    if (display_ok && mono && render_mode_get() == RENDER_MONO) {
+        memcpy(menu_previous, canvas, CLOCK_FRAME_SIZE);
+        menu_previous_valid = true;
+    }
     panel_background = false;
 }
 
@@ -128,7 +146,8 @@ void app_ui_init(void)
     owner = xTaskGetCurrentTaskHandle();
     background = heap_caps_malloc(CLOCK_FRAME_SIZE, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     canvas = heap_caps_malloc(CLOCK_FRAME_SIZE, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-    ESP_ERROR_CHECK(background && canvas ? ESP_OK : ESP_ERR_NO_MEM);
+    menu_previous = heap_caps_malloc(CLOCK_FRAME_SIZE, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    ESP_ERROR_CHECK(background && canvas && menu_previous ? ESP_OK : ESP_ERR_NO_MEM);
     memset(background, 0xff, CLOCK_FRAME_SIZE);
     menu_model_init(&model, APP_CLOCK);
     inputs = xQueueCreate(32, sizeof(menu_input_t));
@@ -153,6 +172,7 @@ void app_ui_set_mode(app_action_t mode)
 {
     if (!app_ui_owner()) return;
     /* Background completion must not redraw or move an already-open menu. */
+    if (model.mode != mode) menu_previous_valid = false;
     menu_model_set_mode(&model, mode);
 }
 
@@ -164,6 +184,7 @@ bool app_ui_menu_open(void)
 void app_ui_open_menu(void)
 {
     if (!app_ui_owner()) return;
+    menu_previous_valid = false; // Explicit entry starts with a full menu frame.
     menu_model_open(&model);
     menu_last_activity = now_ms();
     draw_menu();
@@ -206,8 +227,14 @@ app_ui_event_t app_ui_poll(void)
     }
     if (model.open && dirty) draw_menu();
     else if (!model.open && was_open) {
-        draw_frame(background);  /* Always full refresh when removing menu. */
-        panel_background = display_ok;
+        menu_previous_valid = false;
+        panel_background = false;
+        /* A real action draws its target page in the supervisor. Do not flash
+         * the old background in between, or claim the menu glass is a clock. */
+        if (result.action == APP_NONE) {
+            draw_frame(background);  /* No-action close/idle exit stays full. */
+            panel_background = display_ok;
+        }
     }
     result.menu_open = model.open;
     return result;
@@ -216,6 +243,7 @@ app_ui_event_t app_ui_poll(void)
 void app_ui_present_clock(const uint8_t *previous, const uint8_t *image, bool full)
 {
     if (!app_ui_owner() || !image) return;
+    if (render_mode_get() != RENDER_MONO) menu_previous_valid = false;
     if (!model.open) {
         /* Both monochrome partial activations share one powered session.
          * Gray frames use the vendor's complete four-level update instead. */
