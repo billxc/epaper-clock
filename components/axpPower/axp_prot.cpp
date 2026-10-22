@@ -66,6 +66,19 @@ void axp_init(void)
     axp2101.fuelGaugeControl(true, true);
 }
 
+bool axp_set_power_on_time(unsigned ms)
+{
+    // Register encoding is the vendor enum, not milliseconds. The factory
+    // wrapper preserves the adjacent 4s power-off timing bits.
+    switch (ms) {
+    case 128: return axp2101.setPowerKeyPressOnTime(XPOWERS_POWERON_128MS);
+    case 512: return axp2101.setPowerKeyPressOnTime(XPOWERS_POWERON_512MS);
+    case 1000: return axp2101.setPowerKeyPressOnTime(XPOWERS_POWERON_1S);
+    case 2000: return axp2101.setPowerKeyPressOnTime(XPOWERS_POWERON_2S);
+    default: return false;
+    }
+}
+
 int get_battery_power(void)
 {
     return axp2101.getBatteryPercent();

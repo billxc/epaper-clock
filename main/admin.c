@@ -5,6 +5,7 @@
 #include "app_runtime.h"
 #include "ota.h"
 #include "render_settings.h"
+#include "power_settings.h"
 #include "esp_ota_ops.h"
 #include "esp_app_desc.h"
 #include "esp_system.h"
@@ -111,6 +112,17 @@ static cJSON *body_json(httpd_req_t *r)
     if (!cJSON_IsObject(json)) { cJSON_Delete(json); return NULL; }
     return json;
 }
+static cJSON *power_json(cJSON *parent)
+{
+    power_settings_t settings = power_settings_get();
+    cJSON *power = cJSON_AddObjectToObject(parent, "power");
+    if (!power ||
+        !cJSON_AddStringToObject(power, "sleep_mode",
+            settings.sleep_mode == POWER_SLEEP_DEEP ? "deep_sleep" : "pmu") ||
+        !cJSON_AddNumberToObject(power, "pwr_on_ms", settings.pwr_on_ms) ||
+        !cJSON_AddStringToObject(power, "warning", power_settings_warning())) return NULL;
+    return power;
+}
 static esp_err_t status_json(httpd_req_t *r)
 {
     struct tm now = {0};
@@ -137,6 +149,7 @@ static esp_err_t status_json(httpd_req_t *r)
     cJSON_AddStringToObject(json, "render_mode", render_mode_name(render_settings_requested()));
     cJSON_AddStringToObject(json, "active_render_mode", render_mode_name(render_mode_get()));
     cJSON_AddStringToObject(json, "render_warning", render_settings_warning());
+    power_json(json);
     ota_status_t ota;
     ota_get_status(&ota);
     cJSON *upgrade = cJSON_AddObjectToObject(json, "ota");
@@ -253,6 +266,55 @@ static esp_err_t save_render_mode(httpd_req_t *r)
         return reply(r, "500 Internal Server Error", "{\"error\":\"could not save render setting; previous request retained\"}");
     return status_json(r); // Saved and active can differ until the owner tick.
 }
+static esp_err_t save_power_settings(httpd_req_t *r)
+{
+    session_t *s = session(r);
+    cJSON *json = body_json(r);
+    cJSON *mode = json ? cJSON_GetObjectItemCaseSensitive(json, "sleep_mode") : NULL;
+    cJSON *ms = json ? cJSON_GetObjectItemCaseSensitive(json, "pwr_on_ms") : NULL;
+    // Requiring both named fields and exactly two members rejects duplicates,
+    // aliases and unknown keys. Exact numeric membership also rejects fractions.
+    bool valid = json && cJSON_GetArraySize(json) == 2 && cJSON_IsString(mode) &&
+        (!strcmp(mode->valuestring, "pmu") || !strcmp(mode->valuestring, "deep_sleep")) &&
+        cJSON_IsNumber(ms) && (ms->valuedouble == 128 || ms->valuedouble == 512 ||
+                              ms->valuedouble == 1000 || ms->valuedouble == 2000);
+    power_settings_t settings = {POWER_SLEEP_PMU, 1000};
+    if (valid) {
+        settings.sleep_mode = !strcmp(mode->valuestring, "deep_sleep") ? POWER_SLEEP_DEEP : POWER_SLEEP_PMU;
+        settings.pwr_on_ms = (unsigned)ms->valuedouble;
+    }
+    cJSON_Delete(json);
+    if (!valid) {
+        httpd_resp_set_hdr(r, "Connection", "close");
+        reply(r, "400 Bad Request", "{\"error\":\"expected exactly {sleep_mode: pmu|deep_sleep, pwr_on_ms: 128|512|1000|2000} as JSON\"}");
+        return ESP_FAIL;
+    }
+    int expected = 0;
+    if (ota_busy() || !atomic_compare_exchange_strong(&s->gate, &expected, 4))
+        return reply(r, "409 Conflict", "{\"error\":\"upgrade, screen refresh, or session ending; retry when ready\"}");
+    if (atomic_load(&s->menu_open)) {
+        atomic_store(&s->gate, 0);
+        return reply(r, "409 Conflict", "{\"error\":\"close the physical screen menu before saving\"}");
+    }
+    atomic_store(&s->activity, seconds());
+    // Persistence only: hardware application belongs to the owner task.
+    esp_err_t err = power_settings_save(settings);
+    atomic_store(&s->activity, seconds());
+    atomic_store(&s->gate, 0);
+    if (err != ESP_OK)
+        return reply(r, "500 Internal Server Error", "{\"error\":\"could not save power settings; previous settings retained\"}");
+    json = cJSON_CreateObject();
+    if (!json || !power_json(json)) {
+        cJSON_Delete(json);
+        return reply(r, "500 Internal Server Error", "{\"error\":\"out of memory; read status to confirm saved settings\"}");
+    }
+    char *text = cJSON_PrintUnformatted(json);
+    cJSON_Delete(json);
+    esp_err_t result = reply(r, text ? "200 OK" : "500 Internal Server Error",
+        text ? text : "{\"error\":\"out of memory; read status to confirm saved settings\"}");
+    cJSON_free(text);
+    return result;
+}
 static esp_err_t handle(httpd_req_t *r)
 {
     if (!authorized(r)) return ESP_FAIL;
@@ -275,6 +337,7 @@ static esp_err_t handle(httpd_req_t *r)
     if (r->method == HTTP_GET && !strcmp(r->uri, "/api/status")) return status_json(r);
     if (r->method == HTTP_POST && !strcmp(r->uri, "/api/ota")) return upload(r);
     if (r->method == HTTP_POST && !strcmp(r->uri, "/api/render-mode")) return save_render_mode(r);
+    if (r->method == HTTP_POST && !strcmp(r->uri, "/api/power-settings")) return save_power_settings(r);
     bool sync_route = !strcmp(r->uri, "/api/sync");
     bool exit_route = !strcmp(r->uri, "/api/exit");
     bool activity_route = !strcmp(r->uri, "/api/activity");
@@ -361,6 +424,8 @@ static esp_err_t start_server(httpd_handle_t *server, session_t *s)
     http.global_user_ctx = s;
     http.global_user_ctx_free_fn = keep_session;
     http.uri_match_fn = httpd_uri_match_wildcard;
+    // All API routes (including power settings) use the two wildcard handlers.
+    http.max_uri_handlers = 2;
     http.stack_size = 12288; // 4 KiB upload buffer plus SDK image validation.
     http.recv_wait_timeout = 2;
     http.send_wait_timeout = 2;

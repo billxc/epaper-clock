@@ -24,6 +24,12 @@ jobs:
           /tmp/app-ui-test
           cc -std=gnu11 -Wall -Wextra -Werror -Itests/lan_password_stubs -Imain tests/lan_password_test.c -o /tmp/lan-password-test
           /tmp/lan-password-test
+          cc -std=c11 -Wall -Wextra -Werror -pthread -Itests/power_settings_stubs tests/power_settings_test.c -o /tmp/power-settings-test
+          /tmp/power-settings-test
+          cc -std=c11 -Wall -Wextra -Werror -Itests/power_runtime_stubs -Itests/app_ui_stubs -Imain -Icomponents/axpPower -Icomponents/epaper_port tests/power_runtime_test.c main/power_runtime.c -o /tmp/power-runtime-test
+          /tmp/power-runtime-test
+          cc -std=c11 -Wall -Wextra -Werror -Itests/app_ui_stubs -Imain -Icomponents/epaper_port tests/power_wake_ui_test.c main/app_ui.c main/menu_model.c main/render_mode.c -o /tmp/power-wake-ui-test
+          /tmp/power-wake-ui-test
           cc -std=gnu11 -Wall -Wextra -Werror -Imain tests/clock_refresh_test.c -o /tmp/clock-refresh-test
           /tmp/clock-refresh-test
           cc -std=c11 -Wall -Wextra -Werror -Icomponents/epaper_port tests/frame_codec_test.c components/epaper_port/frame_codec.c -o /tmp/frame-codec-test

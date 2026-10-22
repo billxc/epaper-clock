@@ -18,6 +18,8 @@ extern "C" {
 
 
 void axp_init(void);
+// Owner task only. Accepts 128/512/1000/2000ms; leaves 4s power-off unchanged.
+bool axp_set_power_on_time(unsigned ms);
 int get_battery_power(void);
 bool enapwrstate(uint8_t tab);
 bool disapwrstate(uint8_t tab);

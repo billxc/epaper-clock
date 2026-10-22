@@ -25,6 +25,8 @@
 #include "clock_refresh.h"
 #include "render_mode.h"
 #include "render_settings.h"
+#include "power_settings.h"
+#include "power_runtime.h"
 #include "rtc.h"
 #include "network.h"
 #include "app_runtime.h"
@@ -58,6 +60,7 @@ app_action_t app_poll(bool *activity, bool *selected)
     if (activity) *activity = false;
     if (selected) *selected = false;
     if (app_ui_owner()) {
+        power_runtime_apply_settings();
         app_ui_event_t event = app_ui_poll();
         if (activity) *activity = event.activity;
         if (selected) *selected = event.select;
@@ -163,7 +166,20 @@ static app_action_t synchronize(void)
     return show_result("立刻自动对时", lines, 2, false);
 }
 
-static app_action_t clock_mode(bool manual_start)
+static void sleep_clock(void)
+{
+    cache_unmount();
+    network_stop();
+    // Stop/unmount may take time. Service queued input and recheck all gates
+    // before either PMU shutdown or deep sleep, not just before cleanup.
+    app_poll(NULL, NULL);
+    if (chosen_or(APP_NONE) != APP_NONE || get_usb_connected() || app_ui_menu_open() ||
+        (last_button_activity > 0 && esp_timer_get_time() < last_button_activity + 5000000))
+        return;
+    power_runtime_sleep();
+}
+
+static app_action_t clock_mode(bool manual_start, bool quiet_wake)
 {
     // Four-gray full updates need no previous image; keep SD out of that path.
     render_mode_t last_rendered_mode = render_mode_get();
@@ -176,6 +192,16 @@ static app_action_t clock_mode(bool manual_start)
             cache_unmount();
             return action;
         }
+        // An accidental short GPIO wake must not touch glass or invalidate a
+        // trusted TF baseline. Only the ordinary, already-routed clock path may
+        // take this shortcut; USB or new input resumes normal foreground UI.
+        if (quiet_wake && !get_usb_connected() && !app_ui_menu_open() &&
+            last_button_activity == 0) {
+            sleep_clock();
+            vTaskDelay(pdMS_TO_TICKS(40));
+            continue;
+        }
+        quiet_wake = false;
         struct tm now;
         bool valid = rtc_read(&now);
         render_mode_t mode = render_mode_get();
@@ -228,11 +254,7 @@ static app_action_t clock_mode(bool manual_start)
         int64_t recent = last_button_activity + 5000000;
         if (last_button_activity > 0 && recent > awake_until) awake_until = recent;
         if (!get_usb_connected() && !app_ui_menu_open() && esp_timer_get_time() >= awake_until) {
-            cache_unmount();
-            network_stop();
-            rtc_arm_next_minute();
-            axp_pwr_off();
-            vTaskDelay(portMAX_DELAY);
+            sleep_clock();
         }
         vTaskDelay(pdMS_TO_TICKS(40));
     }
@@ -244,13 +266,17 @@ void app_main(void)
     tzset();
     ESP_ERROR_CHECK(nvs_flash_init());
     render_settings_init();
+    power_settings_init();
     i2c_master_init();
     axp_init();
-    bool scheduled_start = rtc_alarm_pending();
+    power_runtime_apply_settings();
+    power_wake_t wake = power_runtime_wake(rtc_alarm_pending());
+    bool scheduled_start = wake == POWER_WAKE_SCHEDULED;
     clock_rtc_init();
     epaper_port_init();
     app_ui_init();
     bool force_initial = gpio_get_level(GPIO_NUM_4) == 0;
+    bool wake_menu = wake == POWER_WAKE_CENTER && app_ui_confirm_wake_menu();
     if (force_initial) {
         esp_err_t reset = render_settings_restore_default();
         if (reset != ESP_OK) ESP_LOGW("display", "Display default not persisted: %s", esp_err_to_name(reset));
@@ -276,8 +302,9 @@ void app_main(void)
     // This runs only on the first OTA boot, never every minute.
     esp_ota_img_states_t boot_state;
     bool boot_display_healthy = true;
-    if (esp_ota_get_state_partition(esp_ota_get_running_partition(), &boot_state) == ESP_OK &&
-        boot_state == ESP_OTA_IMG_PENDING_VERIFY) {
+    bool pending_verify = esp_ota_get_state_partition(esp_ota_get_running_partition(), &boot_state) == ESP_OK &&
+        boot_state == ESP_OTA_IMG_PENDING_VERIFY;
+    if (pending_verify) {
         // Optional media discovery is outside the mandatory display watchdog
         // budget. Transient failures may retry on a later request after 5s.
         if (render_mode_get() == RENDER_MONO) cache_invalidate();
@@ -300,6 +327,14 @@ void app_main(void)
         ota_resume_management() ? APP_LAN :
         (!network_configured() && !setup_complete) || (!valid_time && !scheduled_start && !setup_complete) ? APP_INITIALIZE : APP_CLOCK;
     bool manual_start = !scheduled_start;
+    // OTA checkpoint and forced-init/recovery management routing above always
+    // win. A confirmed center wake opens the menu BEFORE the first clock frame.
+    if (wake_menu && action == APP_CLOCK) {
+        last_button_activity = esp_timer_get_time();
+        app_ui_open_menu();
+    }
+    bool quiet_wake = wake == POWER_WAKE_CENTER && !wake_menu &&
+        !pending_verify && action == APP_CLOCK;
     for (;;) {
         atomic_store(&pending_action, APP_NONE);
         network_clear_cancel();
@@ -343,7 +378,8 @@ void app_main(void)
             // One explicit/finished setup choice persists across PMU cold boots,
             // including an intentionally offline clock. Never write each minute.
             remember_clock_choice();
-            action = clock_mode(manual_start);
+            action = clock_mode(manual_start, quiet_wake);
+            quiet_wake = false;
             manual_start = true;
             break;
         }

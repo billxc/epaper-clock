@@ -168,6 +168,21 @@ void app_ui_init(void)
     ESP_ERROR_CHECK(created == pdPASS ? ESP_OK : ESP_ERR_NO_MEM);
 }
 
+bool app_ui_confirm_wake_menu(void)
+{
+    if (!app_ui_owner()) return false;
+    uint32_t started = now_ms();
+    TickType_t wake = xTaskGetTickCount();
+    for (;;) {
+        // Check release before the deadline: a short wake never becomes LONG.
+        if (!(pressed_keys() & MENU_PRESSED(MENU_KEY_CENTER))) return false;
+        if ((uint32_t)(now_ms() - started) >= MENU_LONG_PRESS_MS) return true;
+        vTaskDelayUntil(&wake, pdMS_TO_TICKS(20));
+    }
+    // The scanner still ignores this held-at-boot key until release, so the
+    // confirming hold/release cannot be queued again or select a menu item.
+}
+
 void app_ui_set_mode(app_action_t mode)
 {
     if (!app_ui_owner()) return;

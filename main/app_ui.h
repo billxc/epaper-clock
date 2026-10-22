@@ -22,6 +22,10 @@ typedef struct {
 
 // Called on the main task, after epaper_port_init().
 void app_ui_init(void);
+// Call immediately after init ONLY on GPIO5 EXT1 wake, before any normal page.
+// Confirm a continuous ~1s hold without consuming the scanner's boot-key ignore.
+// Returns a request; caller must honor OTA/forced-init/recovery priority first.
+bool app_ui_confirm_wake_menu(void);
 void app_ui_set_mode(app_action_t mode);
 app_ui_event_t app_ui_poll(void);
 bool app_ui_menu_open(void);

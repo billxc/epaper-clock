@@ -40,6 +40,27 @@
 <p id="render-warning" role="status" aria-live="polite"></p>
 <small>两种灰度都只有四级，区别是文字边缘的映射。灰阶为实验功能，效果和刷新稳定性待实机验证。灰阶刷新超时会回退无灰度；若回退保存失败，页面会提示下次启动可能重试灰阶。</small>
 </section>
+<section aria-labelledby="power-title">
+<h2 id="power-title">电源设置</h2>
+<p>设置保存在设备中，掉电、普通或强制初始化以及 OTA 升级后仍保留。保存后正常主循环会应用，无需重启或退出 LAN；此处显示的是已保存设置，不是硬件实测状态。</p>
+<p><label for="sleep-mode">休眠方式：</label>
+<select id="sleep-mode">
+<option value="pmu">PMU 关机（默认）</option>
+<option value="deep_sleep">ESP 深睡</option>
+</select></p>
+<p><label for="pwr-on-ms">PWR 开机按压阈值：</label>
+<select id="pwr-on-ms">
+<option value="128">128ms</option>
+<option value="512">512ms</option>
+<option value="1000" selected>1000ms（默认）</option>
+<option value="2000">2000ms</option>
+</select></p>
+<div class="actions"><button id="save-power" type="button">保存电源设置</button></div>
+<p>已保存：<span id="saved-power">读取中…</span></p>
+<p id="power-warning" role="status" aria-live="polite"></p>
+<p id="power-message" role="status" aria-live="polite"></p>
+<small>PMU 关机后不能用中键唤醒；深睡时中键可唤醒，但耗电尚未测量，不保证更省电。PWR 阈值用于下次开机，不改变当前中键长按菜单操作。升级期间不能保存，请勿断电。</small>
+</section>
 <section aria-labelledby="wifi-title">
 <h2 id="wifi-title">Wi-Fi 设置</h2>
 <p>本页不设置或显示 Wi-Fi 密码。Wi-Fi 设置仅通过独立 HTTPS 页面和蓝牙（BLE）完成；BLE 页面不提供固件升级。</p>
@@ -65,7 +86,8 @@
 'use strict';
 const byId = id => document.getElementById(id);
 let busy = false, ended = false, upgrading = false, baselineBoot = null;
-let renderDirty = false;
+let renderDirty = false, powerDirty = false;
+const sleepNames = {pmu:'PMU 关机', deep_sleep:'ESP 深睡'};
 const renderNames = {mono:'无灰度', linear:'线性灰度', ink_match:'轮廓匹配四灰'};
 const canonicalRender = mode => Object.hasOwn(renderNames, mode) ? mode : 'mono';
 const message = text => { byId('message').textContent = text; };
@@ -86,6 +108,15 @@ async function request(path, body, timeout = 35000) {
   if (!response.ok || data.ok === false) throw new Error(data.error || '请求失败');
   return data;
 }
+function renderPower(power) {
+  if (!power) return;
+  byId('saved-power').textContent = `${sleepNames[power.sleep_mode] || '未知'} / ${power.pwr_on_ms}ms`;
+  byId('power-warning').textContent = power.warning || '';
+  if (!powerDirty) {
+    byId('sleep-mode').value = power.sleep_mode;
+    byId('pwr-on-ms').value = String(power.pwr_on_ms);
+  }
+}
 function render(data) {
   baselineBoot = data.boot_id;
   byId('version').textContent = data.appversion || '未知';
@@ -97,6 +128,7 @@ function render(data) {
   byId('render-warning').textContent = data.render_warning || '';
   // Polling reports the device state but never clobbers an unsaved selection.
   if (!renderDirty) byId('render-mode').value = saved;
+  renderPower(data.power);
   byId('rtc').textContent = data.rtc_time || '无有效时间';
   byId('valid').textContent = data.rtc_valid ? '有效' : '无效，建议校时';
   byId('connected').textContent = data.sta_connected ? '已连接' : '未连接';
@@ -161,6 +193,27 @@ byId('save-render').addEventListener('click', async event => {
     // Keep the user's selection for retry, including after a 409 or NVS error.
     renderDirty = true;
     message(`渲染设置未确认保存：${error.message}。请查看已保存状态后重试。`);
+  } finally {
+    busy = false;
+    if (!ended) { controls(false); void poll(); }
+  }
+});
+byId('sleep-mode').addEventListener('change', () => { powerDirty = true; });
+byId('pwr-on-ms').addEventListener('change', () => { powerDirty = true; });
+byId('save-power').addEventListener('click', async event => {
+  if (!event.isTrusted || busy || ended) return;
+  const settings = {sleep_mode: byId('sleep-mode').value, pwr_on_ms: Number(byId('pwr-on-ms').value)};
+  busy = true;
+  controls(true);
+  byId('power-message').textContent = '正在保存电源设置…';
+  try {
+    const data = await request('/api/power-settings', settings);
+    powerDirty = false;
+    renderPower(data.power);
+    byId('power-message').textContent = '电源设置已保存，正常主循环会应用；PWR 阈值用于下次开机，无需重启。';
+  } catch (error) {
+    powerDirty = true;
+    byId('power-message').textContent = `电源设置未确认保存：${error.message}。请查看已保存状态后重试。`;
   } finally {
     busy = false;
     if (!ended) { controls(false); void poll(); }
