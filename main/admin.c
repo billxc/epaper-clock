@@ -8,6 +8,7 @@
 #include "power_settings.h"
 #include "esp_ota_ops.h"
 #include "esp_app_desc.h"
+#include "esp_app_format.h"
 #include "esp_system.h"
 #include "esp_random.h"
 #include "lan_password.h"
@@ -145,6 +146,11 @@ static esp_err_t status_json(httpd_req_t *r)
     cJSON_AddStringToObject(json, "ssid", config.ssid);
     cJSON_AddNumberToObject(json, "last_sync", (double)last_sync);
     cJSON_AddStringToObject(json, "appversion", esp_app_get_description()->version);
+    cJSON_AddStringToObject(json, "project", esp_app_get_description()->project_name);
+    esp_image_header_t app_header;
+    if (esp_partition_read(esp_ota_get_running_partition(), 0, &app_header, sizeof(app_header)) == ESP_OK)
+        cJSON_AddNumberToObject(json, "chip", app_header.chip_id);
+    cJSON_AddBoolToObject(json, "ota_sha256", true);
     cJSON_AddNumberToObject(json, "boot_id", session(r)->boot_id);
     cJSON_AddStringToObject(json, "render_mode", render_mode_name(render_settings_requested()));
     cJSON_AddStringToObject(json, "active_render_mode", render_mode_name(render_mode_get()));
@@ -190,14 +196,19 @@ static esp_err_t upload(httpd_req_t *r)
         reply(r, "409 Conflict", "{\"error\":\"select LAN on the physical menu to close it before uploading\"}");
         return ESP_FAIL;
     }
-    char type[64];
+    char type[64], sha256[65];
+    size_t hash_length = httpd_req_get_hdr_value_len(r, "X-Firmware-SHA256");
     esp_err_t err;
     if (httpd_req_get_hdr_value_str(r, "Content-Type", type, sizeof(type)) != ESP_OK ||
         strcmp(type, "application/octet-stream")) {
         ota_abort("Expected application/octet-stream standalone app bin");
         err = ESP_ERR_INVALID_ARG;
+    } else if (hash_length && (hash_length != 64 ||
+               httpd_req_get_hdr_value_str(r, "X-Firmware-SHA256", sha256, sizeof(sha256)) != ESP_OK)) {
+        ota_abort("Expected SHA256 must be 64 hexadecimal characters");
+        err = ESP_ERR_INVALID_ARG;
     } else {
-        err = ota_begin(r->content_len, s->password);
+        err = ota_begin(r->content_len, s->password, hash_length ? sha256 : NULL);
     }
     uint8_t buffer[4096]; // Never buffer the full image in RAM.
     size_t remaining = r->content_len;

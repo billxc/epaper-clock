@@ -31,7 +31,9 @@ bool ota_reboot_requested(void);
 
 // HTTP task only; serialized by the HTTP server. Constant-size streaming RAM.
 // begin validates length against the inactive application partition.
-esp_err_t ota_begin(size_t length, const char *password);
+// sha256: optional exact 64-hex SHA256 of all uploaded bytes, checked before
+// SDK end/activation. NULL preserves manual-file compatibility. Not a signature.
+esp_err_t ota_begin(size_t length, const char *password, const char *sha256);
 esp_err_t ota_write(const void *data, size_t length);
 esp_err_t ota_finish(void);
 void ota_abort(const char *reason);

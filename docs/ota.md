@@ -18,7 +18,7 @@
 ## USB 安装
 
 [Firmware 构建与下载](https://github.com/billxc/epaper-clock/actions/workflows/firmware.yml) → 最新成功构建 → Artifacts → `epaper-clock-firmware`。
-当前应用约 2.725MiB，每槽剩余约 4.775MiB；实际文件及大小以该构建产物为准。
+当前应用约 2.733MiB，每槽剩余约 4.767MiB；实际文件及大小以该构建产物为准。
 
 产物包括：
 
@@ -46,14 +46,28 @@ USB 安装初始化 A 槽；第一次正常 OTA 完成后，两槽各有一份�
 ## LAN OTA
 
 1. 长按中键，选择 LAN 管理；手机或电脑打开屏幕上的 IP，以屏幕显示的固定管理密码登录。
-2. 选择本项目的独立应用 `epaper-clock.bin`，点击上传升级。
+2. 点击“检查更新”，确认目标版本后“在线安装”；或选择本项目的独立应用 `epaper-clock.bin` 手动上传。
 3. 页面显示上传、校验和重启状态；屏幕提示“正在升级，请勿断电”。
 4. 启动检查通过或回滚后恢复 LAN，浏览器使用同一管理密码重连并显示结果。
 5. 按通常规则，连续五分钟无用户操作返回时钟。
 
-OTA 只写非运行应用槽，不修改 bootloader、分区表或配置。它不自动下载远程版本，也不提供在线改表功能。
+OTA 只写非运行应用槽，不修改 bootloader、分区表或配置。不在后台自动检查／下载／安装，也不提供在线改表功能。
 Pages BLE 页面只设置 Wi-Fi 和时间，没有 OTA 上传入口。
 升级中暂停闲置退出和模式切换；建议 USB 稳定供电。若路由器改变 IP，查看屏幕并用新地址访问。
+
+## 从 GitHub Pages 在线安装
+
+设备须先通过 USB 或手动 OTA 升级一次支持该功能的版本，随后其 LAN 页面才有在线按钮。不是在 HTTPS BLE 页面中向局域网 HTTP 设备上传。
+
+- 固定版本源：`https://billxc.github.io/epaper-clock/firmware/manifest.json`。包含 schema、版本、完整 commit、app 大小、SHA256、项目、芯片 ID 和不可变 app 文件名。
+- **浏览器**用 HTTPS 下载，明确不发送设备鉴权、Cookie 或 Referrer，不允许重定向和任意源；ESP32 不需要连接 GitHub。
+- 检查更新只取元数据，不下载 app、不写设备。用户点击安装并确认后才下载，核对项目／芯片／版本／大小及另一槽容量，再复用现有鉴权 OTA 上传。版本 hash 不代表新旧顺序，不自动判定降级；同版本在线安装禁用，手动重刷仍可用。
+- LAN HTTP 通常不是 secure context，不能依赖 `crypto.subtle`。在线上传通过 `X-Firmware-SHA256` 交给设备进行完整流式 SHA256 核对；**不符时在 `esp_ota_end`、恢复记录写入和启动槽切换前 abort**。SDK 镜像校验仍必须通过。手动上传可不带此头，保持兼容。
+- SHA256 是完整性元数据，不是发布者签名；需信任 Pages 发布源及当前 LAN。下载不延长 LAN 空闲计时，失败可重新进入管理重试或手动上传。检查／下载不会覆盖尚未保存的显示／电源选项。
+
+Pages 由统一 Actions 工作流发布：部署时取最新 main 文档，并选择同仓库 main 上最近成功且 checks／build 都通过的 Firmware 包；app、manifest、licenses 一起发布，不把二进制提交进 Git。普通文档部署也重新携带最近成功固件，失败／未完成构建不替换它。仅发布独立 app 和同包许可证，不发布 factory、NVS、主机配置或备份。
+
+CDN 切换期间旧 manifest 的不可变文件可能暂时不可用；页面报告错误，不改用任意下载源或跳过校验。首次成功发布后的实际地址／CORS需检查，下载校验和软件模拟不等于实机 OTA／回滚验收。
 
 ## 上传与启动保护
 

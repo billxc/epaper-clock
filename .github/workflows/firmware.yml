@@ -2,7 +2,7 @@ name: Firmware
 on:
   push:
     branches: [main]
-    paths: ['main/**', 'components/**', 'CMakeLists.txt', 'sdkconfig.defaults', 'partitions.csv', 'docs/*.mjs', 'docs/index.html', 'tests/**', '.github/workflows/firmware.yml']
+    paths: ['main/**', 'components/**', 'CMakeLists.txt', 'sdkconfig.defaults', 'partitions.csv', 'docs/*.mjs', 'docs/index.html', 'tests/**', 'tools/firmware_manifest.py', '.github/workflows/firmware.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -18,6 +18,9 @@ jobs:
       - name: Protocol and menu tests
         run: |
           node --test docs/*.test.mjs
+          python3 tests/firmware_manifest_test.py
+          cc -std=c11 -Wall -Wextra -Werror -Itests/ota_stubs -Imain tests/ota_hash_test.c -o /tmp/ota-hash-test
+          /tmp/ota-hash-test
           cc -std=c11 -Wall -Wextra -Werror -Imain tests/menu_test.c main/menu_model.c -o /tmp/menu-test
           /tmp/menu-test
           cc -std=c11 -Wall -Wextra -Werror -Itests/app_ui_stubs -Imain -Icomponents/epaper_port tests/app_ui_test.c main/app_ui.c main/menu_model.c main/render_mode.c -o /tmp/app-ui-test

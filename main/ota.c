@@ -10,6 +10,7 @@
 #include "esp_partition.h"
 #include "esp_timer.h"
 #include "nvs.h"
+#include "mbedtls/sha256.h"
 
 // A single committed blob keeps hash/version/credential transactional. Keep
 // this v1 layout/magic stable across OTA-capable releases: the rollback image
@@ -38,6 +39,9 @@ static uint8_t prefix[PREFIX_SIZE];
 static size_t prefix_used, received, total;
 static char password[17];
 static char version[33];
+static mbedtls_sha256_context upload_hash;
+static bool hash_open, hash_expected;
+static uint8_t expected_hash[32];
 
 static void state(const char *name, const char *message)
 {
@@ -175,6 +179,8 @@ void ota_abort(const char *reason)
 {
     if (writer_open) esp_ota_abort(writer);
     writer_open = false;
+    if (hash_open) mbedtls_sha256_free(&upload_hash);
+    hash_open = hash_expected = false;
     memset(password, 0, sizeof(password));
     state("error", reason);
     portENTER_CRITICAL(&lock);
@@ -187,7 +193,7 @@ static esp_err_t fail(const char *reason, esp_err_t err)
     ota_abort(reason);
     return err == ESP_OK ? ESP_FAIL : err;
 }
-esp_err_t ota_begin(size_t length, const char *credential)
+esp_err_t ota_begin(size_t length, const char *credential, const char *sha256)
 {
     if (ota_busy()) return ESP_ERR_INVALID_STATE;
     target = esp_ota_get_next_update_partition(NULL);
@@ -200,6 +206,30 @@ esp_err_t ota_begin(size_t length, const char *credential)
         return fail("Application binary is too small or exceeds target partition", ESP_ERR_INVALID_SIZE);
     if (!credential || strlen(credential) != 16)
         return fail("Management credential unavailable", ESP_ERR_INVALID_STATE);
+    // Optional for legacy manual uploads; a supplied checksum must be exact.
+    // This is transport integrity, NOT a publisher signature.
+    hash_expected = sha256 != NULL;
+    if (hash_expected) {
+        if (strlen(sha256) != 64)
+            return fail("Expected SHA256 must be 64 hexadecimal characters", ESP_ERR_INVALID_ARG);
+        for (size_t i = 0; i < 32; ++i) {
+            unsigned value = 0;
+            for (size_t j = 0; j < 2; ++j) {
+                char c = sha256[i * 2 + j];
+                unsigned digit;
+                if (c >= '0' && c <= '9') digit = (unsigned)(c - '0');
+                else if (c >= 'a' && c <= 'f') digit = (unsigned)(c - 'a' + 10);
+                else if (c >= 'A' && c <= 'F') digit = (unsigned)(c - 'A' + 10);
+                else return fail("Expected SHA256 is not hexadecimal", ESP_ERR_INVALID_ARG);
+                value = value * 16 + digit;
+            }
+            expected_hash[i] = (uint8_t)value;
+        }
+        mbedtls_sha256_init(&upload_hash);
+        hash_open = true;
+        if (mbedtls_sha256_starts(&upload_hash, 0) != 0)
+            return fail("Cannot initialize upload SHA256", ESP_FAIL);
+    }
     total = length;
     received = prefix_used = 0;
     writer_open = header_checked = false;
@@ -249,6 +279,8 @@ static esp_err_t check_header(void)
 esp_err_t ota_write(const void *data, size_t length)
 {
     if (!ota_busy() || length > total - received) return fail("Invalid upload length", ESP_ERR_INVALID_SIZE);
+    if (hash_expected && mbedtls_sha256_update(&upload_hash, data, length) != 0)
+        return fail("Upload SHA256 failed", ESP_FAIL);
     const uint8_t *bytes = data;
     size_t left = length;
     if (!header_checked) {
@@ -277,6 +309,18 @@ esp_err_t ota_finish(void)
 {
     if (!writer_open || received != total)
         return fail("Upload interrupted or incomplete", ESP_ERR_INVALID_SIZE);
+    // Compare before esp_ota_end, recovery writes, and boot selection. On any
+    // mismatch abort the open writer; the running/boot partition stays intact.
+    if (hash_expected) {
+        uint8_t actual[32];
+        if (mbedtls_sha256_finish(&upload_hash, actual) != 0)
+            return fail("Cannot finish upload SHA256", ESP_FAIL);
+        mbedtls_sha256_free(&upload_hash);
+        hash_open = false;
+        if (memcmp(actual, expected_hash, sizeof(actual)) != 0)
+            return fail("Downloaded application SHA256 mismatch; boot unchanged", ESP_ERR_INVALID_ARG);
+        hash_expected = false;
+    }
     state("verifying", "Verifying image; do not disconnect power");
     esp_err_t err = esp_ota_end(writer);
     writer_open = false; // end frees its handle even on verification failure.
