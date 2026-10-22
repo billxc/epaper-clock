@@ -27,9 +27,9 @@ static unsigned allocated;
 static unsigned transfers, inits, gray_inits, sleeps, invalidates;
 static unsigned fail_transfer;
 static bool fail_init;
-static char kinds[3];
-static const uint8_t *pointers[3];
-static uint8_t frames[3][CLOCK_FRAME_SIZE];
+static char kinds[16];
+static const uint8_t *pointers[16];
+static uint8_t frames[16][CLOCK_FRAME_SIZE];
 static uint8_t successful_menu[CLOCK_FRAME_SIZE], clock_image[CLOCK_FRAME_SIZE];
 
 void *heap_caps_malloc(size_t size, unsigned caps)
@@ -78,6 +78,7 @@ void xQueueReset(QueueHandle_t q) { assert(q == &queue_token); queued = 0; }
 int gpio_get_level(gpio_num_t pin) { (void)pin; return 1; }
 esp_err_t gpio_config(const gpio_config_t *config) { (void)config; return ESP_OK; }
 void cache_invalidate(void) { ++invalidates; }
+void poweroff_sample(void) {} // PWR detection tested separately with real core.
 esp_err_t render_settings_fallback(void) { render_mode_set(RENDER_MONO); return ESP_OK; }
 
 /* Deterministic whole-frame renderer distinguishes menu, confirmation, message,
@@ -99,7 +100,7 @@ esp_err_t EPD_Init_4GRAY(void) { ++gray_inits; return fail_init ? ESP_FAIL : ESP
 void EPD_Sleep(void) { ++sleeps; }
 static esp_err_t transfer(char kind, const uint8_t *image)
 {
-    assert(transfers < 3 && image);
+    assert(transfers < 16 && image);
     kinds[transfers] = kind;
     pointers[transfers] = image;
     memcpy(frames[transfers], image, CLOCK_FRAME_SIZE);

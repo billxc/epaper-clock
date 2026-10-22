@@ -11,6 +11,7 @@ typedef enum {
     APP_DIAGNOSTICS,
     APP_SYNC,
     APP_INITIALIZE,
+    APP_POWER_OFF, // One-shot supervisor task, not a business mode/menu item.
 } app_action_t;
 
 typedef struct {
@@ -36,6 +37,10 @@ void app_ui_discard_input(void);
 // Called after the LAN owner applies a mode and replaces the saved background.
 void app_ui_refresh_menu(void);
 bool app_ui_display_ok(void);
+// Force visible prompt even over an open menu, then ordered spatial erasure
+// and full white. Existing legal mono/full-gray drivers only, no TF save.
+// Returns after final transfer/BUSY and display sleep; false on failure.
+bool app_ui_poweroff(void);
 // Immediately after present_clock: false when only the hidden background was
 // updated beneath a menu. Such a frame must not be persisted as panel state.
 bool app_ui_clock_visible(void);

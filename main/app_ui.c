@@ -3,6 +3,7 @@
 #include "menu_model.h"
 #include "render_mode.h"
 #include "render_settings.h"
+#include "poweroff.h"
 #include "esp_log.h"
 #include "epaper_port.h"
 #include "sdcard_bsp.h"
@@ -212,7 +213,12 @@ void app_ui_refresh_menu(void)
 
 void app_ui_discard_input(void)
 {
-    if (app_ui_owner()) xQueueReset(inputs);
+    if (app_ui_owner()) {
+        // OTA suppresses normal app_poll/UI input, but a PWR request may be
+        // recorded here and deferred until management safely yields ownership.
+        poweroff_sample();
+        xQueueReset(inputs);
+    }
 }
 
 app_ui_event_t app_ui_poll(void)
@@ -274,6 +280,36 @@ void app_ui_present(const uint8_t *image, bool full)
 {
     const uint8_t *previous = have_background && panel_background ? background : NULL;
     app_ui_present_clock(previous, image, full);
+}
+
+bool app_ui_poweroff(void)
+{
+    if (!app_ui_owner()) return false;
+    model.open = model.confirming = model.confirm_yes = false;
+    app_ui_discard_input();
+    menu_previous_valid = have_background = panel_background = false;
+    // Explicit shutdown changes the retained glass even in gray mode. Revoke
+    // any formal mono TF baseline first, using existing fail-closed/unknown-file
+    // handling. Never store these animation frames as a clock baseline.
+    cache_invalidate();
+    const char *lines[] = {"正在关机，请稍候", "画面清空后关闭电源"};
+    screen_render(canvas, "正在关机", lines, 2, -1);
+    // Unlike app_ui_message this MUST draw even if the menu was open.
+    draw_frame(canvas);
+    if (!display_ok) return false;
+    memcpy(menu_previous, canvas, CLOCK_FRAME_SIZE);
+    for (unsigned step = 1; step <= 3; ++step) {
+        // Spatial fade: whiten 1/3, 2/3, then ALL pixels throughout every
+        // glyph, not a top wipe that could erase the whole prompt in frame 1.
+        // No temporal gray partial/LUT; full-gray retains its legal waveform.
+        for (size_t pixel = 0; pixel < (size_t)EPD_WIDTH * EPD_HEIGHT; ++pixel)
+            if (pixel % 3 < step)
+                canvas[pixel / 4] |= (uint8_t)(3U << (6 - 2 * (pixel % 4)));
+        present_panel(canvas, menu_previous, false);
+        if (!display_ok) return false;
+        memcpy(menu_previous, canvas, CLOCK_FRAME_SIZE);
+    }
+    return true; // present_panel already waited and slept, no cache_write.
 }
 
 void app_ui_message(const char *title, const char *const *lines, size_t count)

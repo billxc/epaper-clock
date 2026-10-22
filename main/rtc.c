@@ -75,6 +75,21 @@ void rtc_set(time_t epoch)
     xSemaphoreGive(rtc_lock);
 }
 
+bool rtc_cancel_alarm(void)
+{
+    uint8_t control = 0, check = 0;
+    uint8_t disabled[] = {0x80, 0x80, 0x80, 0x80, 0x80};
+    xSemaphoreTake(rtc_lock, portMAX_DELAY);
+    esp_err_t err = i2c_read_reg(PCF85063Addr, 0x01, &control, 1);
+    // Disable AIE and clear AF (write-zero-clear); preserve other control bits.
+    control &= ~(0x80 | 0x40);
+    if (err == ESP_OK) err = i2c_write_reg(PCF85063Addr, 0x01, &control, 1);
+    if (err == ESP_OK) err = i2c_write_reg(PCF85063Addr, 0x0b, disabled, sizeof(disabled));
+    if (err == ESP_OK) err = i2c_read_reg(PCF85063Addr, 0x01, &check, 1);
+    xSemaphoreGive(rtc_lock);
+    return err == ESP_OK && !(check & (0x80 | 0x40));
+}
+
 void rtc_arm_next_minute(void)
 {
     xSemaphoreTake(rtc_lock, portMAX_DELAY);

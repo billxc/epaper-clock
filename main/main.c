@@ -27,6 +27,7 @@
 #include "render_settings.h"
 #include "power_settings.h"
 #include "power_runtime.h"
+#include "poweroff.h"
 #include "rtc.h"
 #include "network.h"
 #include "app_runtime.h"
@@ -61,6 +62,15 @@ app_action_t app_poll(bool *activity, bool *selected)
     if (selected) *selected = false;
     if (app_ui_owner()) {
         power_runtime_apply_settings();
+        poweroff_sample();
+        if (poweroff_tracking()) last_button_activity = esp_timer_get_time();
+        if (poweroff_requested(ota_busy())) {
+            atomic_store(&pending_action, APP_POWER_OFF);
+            network_cancel();
+            return APP_POWER_OFF; // No drawing inside network/admin poll hooks.
+        }
+        // Do not start a slow menu update while timing a PWR hold.
+        if (poweroff_tracking()) return (app_action_t)atomic_load(&pending_action);
         app_ui_event_t event = app_ui_poll();
         if (activity) *activity = event.activity;
         if (selected) *selected = event.select;
@@ -192,6 +202,10 @@ static app_action_t clock_mode(bool manual_start, bool quiet_wake)
             cache_unmount();
             return action;
         }
+        if (poweroff_tracking()) {
+            vTaskDelay(pdMS_TO_TICKS(40));
+            continue;
+        }
         // An accidental short GPIO wake must not touch glass or invalidate a
         // trusted TF baseline. Only the ordinary, already-routed clock path may
         // take this shortcut; USB or new input resumes normal foreground UI.
@@ -269,6 +283,7 @@ void app_main(void)
     power_settings_init();
     i2c_master_init();
     axp_init();
+    ESP_ERROR_CHECK(poweroff_init() ? ESP_OK : ESP_FAIL);
     power_runtime_apply_settings();
     power_wake_t wake = power_runtime_wake(rtc_alarm_pending());
     bool scheduled_start = wake == POWER_WAKE_SCHEDULED;
@@ -338,8 +353,19 @@ void app_main(void)
     for (;;) {
         atomic_store(&pending_action, APP_NONE);
         network_clear_cancel();
-        app_ui_set_mode(action);
+        if (poweroff_requested(ota_busy())) action = APP_POWER_OFF;
+        if (action != APP_POWER_OFF) app_ui_set_mode(action);
         switch (action) {
+        case APP_POWER_OFF:
+            // All foreground tasks have returned/joined. No HTTP mutex, SPI
+            // transfer or OTA writer can race this owner-only shutdown sequence.
+            network_stop();
+            cache_unmount();
+            poweroff_execute();
+            // Failure (including VBUS keeping us alive): never re-arm minute
+            // wake or redraw after the final white. Hardware 10s fallback stays.
+            for (;;) vTaskDelay(pdMS_TO_TICKS(1000));
+            break;
         case APP_INITIALIZE:
         case APP_BLE: {
             bool initial = action == APP_INITIALIZE;

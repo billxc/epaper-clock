@@ -30,6 +30,12 @@ jobs:
           /tmp/power-runtime-test
           cc -std=c11 -Wall -Wextra -Werror -Itests/app_ui_stubs -Imain -Icomponents/epaper_port tests/power_wake_ui_test.c main/app_ui.c main/menu_model.c main/render_mode.c -o /tmp/power-wake-ui-test
           /tmp/power-wake-ui-test
+          cc -std=c11 -Wall -Wextra -Werror -Itests/poweroff_stubs -Itests/power_runtime_stubs -Itests/app_ui_stubs -Imain -Icomponents/axpPower -Icomponents/epaper_port tests/poweroff_test.c main/poweroff.c main/app_ui.c main/menu_model.c main/render_mode.c -o /tmp/poweroff-test
+          /tmp/poweroff-test
+          c++ -std=c++17 -Wall -Wextra -Werror -Wno-error=return-type -Itests/poweroff_stubs -Itests/app_ui_stubs -Icomponents/axpPower -Icomponents/axpPower/src -Icomponents/i2c_bsp tests/poweroff_axp_test.cpp components/axpPower/axp_prot.cpp components/axpPower/src/XPowersLibInterface.cpp -o /tmp/poweroff-axp-test
+          /tmp/poweroff-axp-test
+          cc -D_POSIX_C_SOURCE=200809L -std=c11 -Wall -Wextra -Werror -Itests/poweroff_stubs -Itests/app_ui_stubs -Imain -Icomponents/i2c_bsp tests/poweroff_rtc_test.c main/rtc.c -o /tmp/poweroff-rtc-test
+          /tmp/poweroff-rtc-test
           cc -std=gnu11 -Wall -Wextra -Werror -Imain tests/clock_refresh_test.c -o /tmp/clock-refresh-test
           /tmp/clock-refresh-test
           cc -std=c11 -Wall -Wextra -Werror -Icomponents/epaper_port tests/frame_codec_test.c components/epaper_port/frame_codec.c -o /tmp/frame-codec-test
