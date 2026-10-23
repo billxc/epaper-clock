@@ -90,6 +90,7 @@ jobs:
       - name: Persistent TLS identity with SDK-bundled host crypto
         shell: bash
         run: |
+          . "$IDF_PATH/export.sh"
           cmake -S "$IDF_PATH/components/mbedtls/mbedtls" -B /tmp/tls-identity-mbedtls -DENABLE_TESTING=OFF -DENABLE_PROGRAMS=OFF -DGEN_FILES=OFF
           cmake --build /tmp/tls-identity-mbedtls --parallel 2
           cc -std=gnu11 -Wall -Wextra -Werror -Itests/tls_identity_stubs -I"$IDF_PATH/components/mbedtls/mbedtls/include" tests/tls_identity_test.c -L/tmp/tls-identity-mbedtls/library -lmbedx509 -lmbedcrypto -o /tmp/tls-identity-test
