@@ -2,7 +2,7 @@ name: Firmware
 on:
   push:
     branches: [main]
-    paths: ['main/**', 'components/**', 'CMakeLists.txt', 'sdkconfig.defaults', 'partitions.csv', 'docs/*.mjs', 'docs/index.html', 'tests/**', 'tools/firmware_manifest.py', '.github/workflows/firmware.yml']
+    paths: ['main/**', 'components/**', 'CMakeLists.txt', 'sdkconfig.defaults', 'partitions.csv', 'docs/*.mjs', 'docs/index.html', 'docs/lan/**', 'tests/**', 'tools/firmware_manifest.py', '.github/workflows/firmware.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -19,6 +19,7 @@ jobs:
         run: |
           node --test docs/*.test.mjs
           python3 tests/firmware_manifest_test.py
+          node --check docs/lan/lan.mjs
           cc -std=c11 -Wall -Wextra -Werror -Itests/ota_stubs -Imain tests/ota_hash_test.c -o /tmp/ota-hash-test
           /tmp/ota-hash-test
           cc -std=c11 -Wall -Wextra -Werror -Imain tests/menu_test.c main/menu_model.c -o /tmp/menu-test
@@ -86,6 +87,13 @@ jobs:
           cp partitions.csv build/partitions.csv
           mkdir -p build/sd-cache
           cp docs/sd-cache.md build/sd-cache/README.md
+      - name: Persistent TLS identity with SDK-bundled host crypto
+        shell: bash
+        run: |
+          cmake -S "$IDF_PATH/components/mbedtls/mbedtls" -B /tmp/tls-identity-mbedtls -DENABLE_TESTING=OFF -DENABLE_PROGRAMS=OFF -DGEN_FILES=OFF
+          cmake --build /tmp/tls-identity-mbedtls --parallel 2
+          cc -std=gnu11 -Wall -Wextra -Werror -Itests/tls_identity_stubs -I"$IDF_PATH/components/mbedtls/mbedtls/include" tests/tls_identity_test.c -L/tmp/tls-identity-mbedtls/library -lmbedx509 -lmbedcrypto -o /tmp/tls-identity-test
+          /tmp/tls-identity-test
       - uses: actions/upload-artifact@v4
         with:
           name: epaper-clock-firmware

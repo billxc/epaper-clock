@@ -1,0 +1,17 @@
+:root { color-scheme: light dark; font-family: system-ui, sans-serif; line-height: 1.65; }
+body { margin: 0; }
+main { max-width: 960px; margin: auto; padding: 1rem; }
+h1 { font-size: 1.7rem; }
+h2 { font-size: 1.25rem; }
+small { font-size: .85rem; }
+section { border: 1px solid #8888; border-radius: .6rem; padding: 1rem; margin: 1rem 0; }
+.notice { border-left: .3rem solid #b87800; padding: .7rem; background: #c8901215; }
+label { display: block; font-weight: 600; }
+input { box-sizing: border-box; width: 100%; padding: .65rem; font: inherit; }
+button { padding: .6rem .8rem; font: inherit; cursor: pointer; }
+button:disabled { cursor: not-allowed; }
+.actions { display: flex; flex-wrap: wrap; gap: .6rem; }
+#connection, #update { white-space: pre-wrap; overflow-wrap: anywhere; }
+iframe { width: 100%; min-height: 720px; border: 1px solid #8888; background: white; }
+footer { font-size: .9rem; }
+a { color: light-dark(#135eaa, #8ac0ff); }

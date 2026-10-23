@@ -12,6 +12,7 @@
 #include "esp_system.h"
 #include "esp_random.h"
 #include "lan_password.h"
+#include "tls_identity.h"
 #include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -20,7 +21,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
-#include "esp_http_server.h"
+#include "esp_https_server.h"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "mbedtls/base64.h"
@@ -64,6 +65,7 @@ static esp_err_t reply(httpd_req_t *r, const char *status, const char *body)
     httpd_resp_set_type(r, "application/json; charset=utf-8");
     httpd_resp_set_hdr(r, "Cache-Control", "no-store");
     httpd_resp_set_hdr(r, "X-Content-Type-Options", "nosniff");
+    httpd_resp_set_hdr(r, "Content-Security-Policy", "frame-ancestors https://billxc.github.io");
     return httpd_resp_sendstr(r, body);
 }
 static bool authorized(httpd_req_t *r)
@@ -342,7 +344,7 @@ static esp_err_t handle(httpd_req_t *r)
         httpd_resp_set_hdr(r, "Cache-Control", "no-store");
         httpd_resp_set_hdr(r, "X-Content-Type-Options", "nosniff");
         httpd_resp_set_hdr(r, "Referrer-Policy", "no-referrer");
-        httpd_resp_set_hdr(r, "Content-Security-Policy", "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'");
+        httpd_resp_set_hdr(r, "Content-Security-Policy", "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self' https://billxc.github.io; frame-ancestors https://billxc.github.io; base-uri 'none'; form-action 'none'");
         return httpd_resp_send(r, html_start, html_end - html_start - 1);
     }
     if (r->method == HTTP_GET && !strcmp(r->uri, "/api/status")) return status_json(r);
@@ -428,10 +430,21 @@ static bool authentication(session_t *s)
     memset(credentials, 0, sizeof(credentials));
     return true;
 }
-static esp_err_t start_server(httpd_handle_t *server, session_t *s)
+static esp_err_t start_server(httpd_handle_t *server, session_t *s, const char *ip)
 {
-    httpd_config_t http = HTTPD_DEFAULT_CONFIG();
-    http.server_port = 80;
+    tls_identity_t *identity = NULL;
+    esp_err_t err = tls_identity_load(ip, &identity);
+    if (err != ESP_OK) return err; // Never serve with a non-persistent key.
+    httpd_ssl_config_t tls = HTTPD_SSL_CONFIG_DEFAULT();
+    tls.transport_mode = HTTPD_SSL_TRANSPORT_SECURE;
+    tls.port_secure = 443; // HTTPS only; port 80 is not opened or redirected.
+    tls.servercert = (const uint8_t *)identity->certificate;
+    tls.servercert_len = strlen(identity->certificate) + 1;
+    tls.prvtkey_pem = (const uint8_t *)identity->private_key;
+    tls.prvtkey_len = strlen(identity->private_key) + 1;
+    tls.tls_handshake_timeout_ms = 10000;
+    httpd_config_t http = tls.httpd;
+    http.max_open_sockets = 2; // Conservative TLS RAM budget on N16R8.
     http.global_user_ctx = s;
     http.global_user_ctx_free_fn = keep_session;
     http.uri_match_fn = httpd_uri_match_wildcard;
@@ -441,7 +454,10 @@ static esp_err_t start_server(httpd_handle_t *server, session_t *s)
     http.recv_wait_timeout = 2;
     http.send_wait_timeout = 2;
     http.lru_purge_enable = true;
-    esp_err_t err = httpd_start(server, &http);
+    tls.httpd = http;
+    err = httpd_ssl_start(server, &tls);
+    // IDF 5.5.2 create_secure_context copies PEM into the TLS context.
+    tls_identity_free(identity);
     if (err != ESP_OK) return err;
     httpd_uri_t get = {.uri = "/*", .method = HTTP_GET, .handler = handle};
     httpd_uri_t post = {.uri = "/*", .method = HTTP_POST, .handler = handle};
@@ -449,7 +465,7 @@ static esp_err_t start_server(httpd_handle_t *server, session_t *s)
         err = httpd_register_uri_handler(*server, &post);
     if (err == ESP_OK) err = httpd_register_err_handler(*server, HTTPD_404_NOT_FOUND, unknown);
     if (err == ESP_OK) err = httpd_register_err_handler(*server, HTTPD_405_METHOD_NOT_ALLOWED, unknown);
-    if (err != ESP_OK) { httpd_stop(*server); *server = NULL; }
+    if (err != ESP_OK) { httpd_ssl_stop(*server); *server = NULL; }
     return err;
 }
 static void show_management(uint8_t *frame, const session_t *s, const char *ip)
@@ -458,7 +474,7 @@ static void show_management(uint8_t *frame, const session_t *s, const char *ip)
     ota_get_status(&ota);
     if (ota_resume_management() || !frame) {
         char address[40], credential[40], firmware[64];
-        snprintf(address, sizeof(address), "http://%s/", ip);
+        snprintf(address, sizeof(address), "https://%s/", ip);
         snprintf(credential, sizeof(credential), "admin / %s", s->password);
         snprintf(firmware, sizeof(firmware), "固件版本: %s", esp_app_get_description()->version);
         const char *result = !strcmp(ota.state, "success") ? "升级成功，已恢复管理" :
@@ -489,7 +505,7 @@ app_action_t admin_run(void)
     bool resuming = ota_get_password_override(resume_password);
     app_ui_set_mode(APP_LAN);
     if (!s.network_mutex) {
-        const char *lines[] = {"内存不足，无法启动 HTTP", "长按中键选单；闲置五分钟回时钟"};
+        const char *lines[] = {"内存不足，无法启动 HTTPS", "长按中键选单；闲置五分钟回时钟"};
         app_ui_message("LAN 管理不可用", lines, 2);
     }
     unsigned attempts = 0, next_try = seconds();
@@ -540,7 +556,7 @@ app_action_t admin_run(void)
             if (disconnected) {
                 if (server) {
                     network_cancel();
-                    httpd_stop(server);
+                    httpd_ssl_stop(server);
                     server = NULL;
                     network_stop();
                     network_clear_cancel();
@@ -562,7 +578,7 @@ app_action_t admin_run(void)
                         // never serve with an ephemeral replacement password.
                         err = lan_password_get(s.password, resuming ? resume_password : NULL);
                         if (err == ESP_OK && !authentication(&s)) err = ESP_FAIL;
-                        if (err == ESP_OK) err = start_server(&server, &s);
+                        if (err == ESP_OK) err = start_server(&server, &s, info.ip);
                     }
                     if (err == ESP_OK) {
                         int expected = 0;
@@ -573,7 +589,7 @@ app_action_t admin_run(void)
                     } else {
                         network_stop();
                         next_try = seconds() + 10;
-                        const char *failure[] = {"Wi-Fi 或 HTTP 启动失败", esp_err_to_name(err),
+                        const char *failure[] = {"Wi-Fi 或 HTTPS/身份保存失败", esp_err_to_name(err),
                             attempts < 3 ? "十秒后重试" : "三次尝试已用完，停止自动重试",
                             "仍在管理模式，长按中键选单", "五分钟无操作将回到时钟"};
                         app_ui_message("LAN 暂不可用", failure, 5);
@@ -585,7 +601,7 @@ app_action_t admin_run(void)
     }
     atomic_store(&s.exiting, true);
     network_cancel();
-    if (server) httpd_stop(server); // Join before releasing stack/session memory.
+    if (server) httpd_ssl_stop(server); // Join before releasing stack/session memory.
     network_stop();
     active_session = NULL;
     if (s.network_mutex) vSemaphoreDelete(s.network_mutex);

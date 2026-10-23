@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>电子纸时钟管理</title>
 <style>
-:root{color-scheme:light dark;font-family:system-ui,sans-serif;line-height:1.6}body{max-width:760px;margin:auto;padding:20px}h1{font-size:1.7rem}section{border:1px solid #8887;border-radius:12px;padding:18px;margin:18px 0}.notice{border-left:4px solid #b77900;padding:12px;background:#bb880015}dl{display:grid;grid-template-columns:7em 1fr;gap:10px}dt{font-weight:bold}dd{margin:0;overflow-wrap:anywhere}button,input,select{font:inherit;box-sizing:border-box;min-height:44px;max-width:100%}button{padding:8px 16px;cursor:pointer;border:1px solid #888;border-radius:6px}button:disabled{cursor:wait;opacity:.6}.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}small{display:block;opacity:.8}#message,#ota-message{white-space:pre-wrap;overflow-wrap:anywhere;min-height:2em}progress{width:100%}@media(max-width:440px){body{padding:12px}section{padding:12px}dl{grid-template-columns:6em 1fr}.actions button{width:100%}}
+[hidden]{display:none!important}:root{color-scheme:light dark;font-family:system-ui,sans-serif;line-height:1.6}body{max-width:760px;margin:auto;padding:20px}h1{font-size:1.7rem}section{border:1px solid #8887;border-radius:12px;padding:18px;margin:18px 0}.notice{border-left:4px solid #b77900;padding:12px;background:#bb880015}dl{display:grid;grid-template-columns:7em 1fr;gap:10px}dt{font-weight:bold}dd{margin:0;overflow-wrap:anywhere}button,input,select{font:inherit;box-sizing:border-box;min-height:44px;max-width:100%}button{padding:8px 16px;cursor:pointer;border:1px solid #888;border-radius:6px}button:disabled{cursor:wait;opacity:.6}.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}small{display:block;opacity:.8}#message,#ota-message{white-space:pre-wrap;overflow-wrap:anywhere;min-height:2em}progress{width:100%}@media(max-width:440px){body{padding:12px}section{padding:12px}dl{grid-template-columns:6em 1fr}.actions button{width:100%}}
 </style>
 </head>
 <body>
 <h1>电子纸时钟管理</h1>
-<p class="notice">仅限同一可信局域网。HTTP 和 Basic 认证不加密，勿暴露到公网或不可信网络。用户名为 <b>admin</b>，密码为设备首次生成并保存的固定管理密码，可在屏幕查看，不是路由器密码。重新进入管理、重启和升级不会随机更换密码。</p>
+<p class="notice">仅限同一可信局域网，使用设备本机 HTTPS（443），不再提供旧 HTTP 服务。设备首次生成长期有效的独立自签证书，不是公开可信证书；请先独立打开屏幕上的 HTTPS 地址，核对设备后接受证书例外并登录，再返回 Pages 加载管理 iframe。证书例外与登录跨 iframe 是否复用取决于浏览器，不保证成功。DHCP 地址改变可能出现名称警告，建议固定租约；勿关闭 TLS 验证或全局放宽信任。勿暴露到公网或不可信网络。用户名为 <b>admin</b>，密码为设备首次生成并保存的固定管理密码，可在屏幕查看，不是路由器密码。重新进入管理、重启和升级不会随机更换密码。</p>
 <p>无用户操作 5 分钟自动退出；持续操作无总时长上限。每 10 秒自动读取状态不续期。升级中暂停闲置退出和模式切换。</p>
 <section aria-labelledby="status-title">
 <h2 id="status-title">当前状态</h2>
@@ -76,7 +76,7 @@
 <section aria-labelledby="ota-title">
 <h2 id="ota-title">固件升级</h2>
 <p>在线来源固定为本项目 GitHub Pages。浏览器通过 HTTPS 检查并下载独立 app bin，再经当前已鉴权 LAN 连接上传；设备不访问 GitHub，管理凭据不发往 Pages。仅点击安装并确认后才写入 OTA。</p>
-<div class="actions"><button id="check-update" type="button">检查更新</button><button id="install-update" type="button" disabled>在线安装</button></div>
+<div class="actions" id="direct-update-actions"><button id="check-update" type="button">检查更新</button><button id="install-update" type="button" disabled>在线安装</button></div>
 <p id="update-message" role="status" aria-live="polite">尚未检查更新。</p>
 <small>SHA256 用于传输完整性核对，不是发布者数字签名。仍需信任此公开源和当前局域网；GitHub Pages/CDN 更新可能延迟。<a href="https://billxc.github.io/epaper-clock/firmware/licenses/THIRD_PARTY.md" target="_blank" rel="noopener noreferrer">同包版权说明</a>（同目录含 LICENSE、字体 OFL 和 FatFs 声明）。</small>
 <p class="notice">仅上传本项目、对应芯片的独立应用 <code>.bin</code>。不要上传 bootloader、分区表、合并镜像或其它项目。不会在后台自动检查或下载远程版本。升级前保持可靠供电，过程中不要断电或关闭设备。</p>
@@ -174,17 +174,7 @@ byId('install-update').addEventListener('click', async event => {
     updateMessage('正在下载到浏览器，尚未写入设备；下载不延长 LAN 空闲计时…');
     const blob = await limitedBody(await publicFetch(selected.downloadURL), selected.size);
     if (blob.size !== selected.size) throw new Error('下载大小与 manifest 不一致');
-    // Match standalone ESP app metadata before starting the authenticated POST.
-    const head = new Uint8Array(await blob.slice(0, 288).arrayBuffer());
-    const view = new DataView(head.buffer);
-    const cstring = (start, length) => {
-      const bytes = head.slice(start, start + length), end = bytes.indexOf(0);
-      if (end < 0) throw new Error('应用描述无终止符');
-      return new TextDecoder('utf-8', {fatal:true}).decode(bytes.slice(0, end));
-    };
-    if (head[0] !== 0xe9 || view.getUint16(12, true) !== selected.chip ||
-        view.getUint32(32, true) !== 0xabcd5432 || cstring(48, 32) !== selected.version ||
-        cstring(80, 32) !== selected.project) throw new Error('下载的 app 镜像与 manifest 项目/芯片/版本不匹配');
+    validateAppHeader(await blob.slice(0, 288).arrayBuffer(), selected);
     data = await deviceForUpdate(); // Session may have expired while downloading.
     problem = updateProblem(selected, data);
     if (problem) throw new Error(problem);
@@ -193,6 +183,101 @@ byId('install-update').addEventListener('click', async event => {
     uploadApplication(blob, data.boot_id, selected.sha256);
   } catch (error) {
     updateMessage(`在线安装未开始：${error.message}。未切换启动固件，可重试或手动上传。`);
+    busy = upgrading = false; controls(false);
+  }
+});
+// Only this fixed publisher may drive the embedded transfer bridge. Never send
+// raw /api/status (IP/SSID), credentials or arbitrary server error text upstream.
+const bridgeOrigin = 'https://billxc.github.io', bridgeProtocol = 'epaper-admin-v1';
+const embedded = window.parent !== window;
+let bridgeNonce = null, bridgeReady = false, helloPending = false, bridgeRequest = null;
+const usedInstallIds = new Set();
+const hex128 = value => typeof value === 'string' && /^[a-f0-9]{32}$/.test(value);
+if (embedded) {
+  byId('direct-update-actions').hidden = true;
+  updateMessage('推荐在父 Pages 检查并确认安装；父页同源下载后交给本设备页上传。仍可手动上传本地文件。');
+}
+function bridgeSend(type, fields = {}) {
+  if (embedded && bridgeNonce) window.parent.postMessage(
+    {protocol:bridgeProtocol, type, nonce:bridgeNonce, ...fields}, bridgeOrigin);
+}
+function bridgeError(requestId, code, message) {
+  bridgeSend('error', { ...(requestId ? {requestId} : {}), code, message });
+}
+function bridgeResult(state) {
+  if (!bridgeRequest) return;
+  bridgeSend('result', {requestId:bridgeRequest, state});
+  if (state !== 'rebooting') bridgeRequest = null;
+}
+function validateAppHeader(buffer, selected) {
+  const head = new Uint8Array(buffer, 0, Math.min(288, buffer.byteLength));
+  if (head.length < 288) throw new Error('应用描述太短');
+  const view = new DataView(head.buffer, head.byteOffset, head.byteLength);
+  const cstring = (start, length) => {
+    const bytes = head.slice(start, start + length), end = bytes.indexOf(0);
+    if (end < 0) throw new Error('应用描述无终止符');
+    return new TextDecoder('utf-8', {fatal:true}).decode(bytes.slice(0, end));
+  };
+  if (head[0] !== 0xe9 || view.getUint16(12, true) !== selected.chip ||
+      view.getUint32(32, true) !== 0xabcd5432 || cstring(48, 32) !== selected.version ||
+      cstring(80, 32) !== selected.project) throw new Error('app 镜像与 manifest 不匹配');
+}
+window.addEventListener('message', async event => {
+  const m = event.data;
+  if (!embedded || event.source !== window.parent || event.origin !== bridgeOrigin ||
+      !m || m.protocol !== bridgeProtocol || !hex128(m.nonce)) return;
+  if (m.type === 'hello') {
+    if (bridgeNonce && m.nonce !== bridgeNonce) return;
+    bridgeNonce = m.nonce;
+    if (helloPending || ended) return;
+    helloPending = true;
+    try {
+      const data = await deviceForUpdate(); // Authenticated success, not iframe onload.
+      if (!data.ota_sha256 || !Number.isInteger(data.chip) || typeof data.project !== 'string' ||
+          typeof data.appversion !== 'string' || !Number.isSafeInteger(data.ota?.next_slot_bytes))
+        throw new Error('unsupported');
+      bridgeReady = true;
+      bridgeSend('ready', {version:data.appversion, project:data.project, chip:data.chip,
+        next_slot_bytes:data.ota.next_slot_bytes, capabilities:['sha256','transfer-install']});
+    } catch (_) {
+      bridgeReady = false;
+      bridgeError(null, 'status', '设备鉴权状态读取失败；请在顶层打开设备 HTTPS 地址信任证书并登录，再重新加载 iframe。');
+    } finally { helloPending = false; }
+    return;
+  }
+  if (m.nonce !== bridgeNonce || m.type !== 'install' || !hex128(m.requestId)) return;
+  const id = m.requestId;
+  if (!bridgeReady || ended) { bridgeError(id, 'status', '管理未就绪或已结束，请重新打开管理。'); return; }
+  if (usedInstallIds.has(id) || usedInstallIds.size >= 32) {
+    bridgeError(id, 'replay', '请求已使用；不会自动重装，请核对状态。'); return;
+  }
+  if (busy || upgrading) { bridgeError(id, 'busy', '设备管理正在操作或升级，请稍后核对状态。'); return; }
+  if (m.confirmed !== true) { bridgeError(id, 'confirm', '必须由父页用户明确点击安装并确认可靠供电。'); return; }
+  usedInstallIds.add(id); // Consume before any async operation; never replay automatically.
+  busy = true; controls(true);
+  let code = 'manifest', compatibilityProblem = '';
+  try {
+    const selected = parseManifest(m.manifest);
+    if (!(m.buffer instanceof ArrayBuffer) || m.buffer.byteLength !== selected.size)
+      throw new Error('size');
+    code = 'image';
+    validateAppHeader(m.buffer, selected);
+    code = 'status';
+    const data = await deviceForUpdate();
+    compatibilityProblem = updateProblem(selected, data);
+    if (compatibilityProblem) throw new Error('incompatible');
+    // Exactly one activity request for this explicit confirmed parent action;
+    // hello, polling and all other bridge messages never keep management alive.
+    await request('/api/activity', {});
+    const blob = new Blob([m.buffer], {type:'application/octet-stream'});
+    bridgeRequest = id;
+    upgrading = true;
+    updateMessage('父页固件已交付；设备同源上传并校验完整 SHA256/SDK 镜像，请勿断电。');
+    uploadApplication(blob, data.boot_id, selected.sha256);
+  } catch (_) {
+    bridgeError(id, code, code === 'manifest' ? 'manifest 或固件大小不符合固定 Pages 发布标准。' :
+      code === 'image' ? '固件头部项目、芯片或版本与 manifest 不匹配。' :
+      compatibilityProblem || '设备鉴权状态读取或会话续期失败，请在顶层重新登录并核对设备。');
     busy = upgrading = false; controls(false);
   }
 });
@@ -359,6 +444,7 @@ async function reconnect(oldBoot) {
         otaMessage(ota.state === 'success'
           ? `升级成功，已重新连接。当前版本：${data.appversion}（目标：${ota.expected_version}）。闲置 5 分钟返回时钟。`
           : `新固件未成功启动，已回滚并恢复服务。当前版本：${data.appversion}；尝试版本：${ota.expected_version}。`);
+        bridgeResult(ota.state);
         busy = upgrading = false;
         controls(false);
         return;
@@ -366,6 +452,8 @@ async function reconnect(oldBoot) {
       if (ota.state === 'error' && !ota.busy) {
         render(data);
         otaMessage(`升级失败：${ota.message}。未切换启动固件，可重新选择文件上传。`);
+        if (bridgeRequest) bridgeError(bridgeRequest, 'upload', '设备报告升级失败，未确认新固件启动，请查看设备管理。');
+        bridgeRequest = null;
         busy = upgrading = false;
         controls(false);
         return;
@@ -374,6 +462,7 @@ async function reconnect(oldBoot) {
           ['idle', 'success', 'rollback'].includes(ota.state)) {
         render(data);
         otaMessage('设备仍在原管理会话，未确认本次上传/重启。旧固件继续服务，可重新上传；不是新的升级成功结果。');
+        bridgeResult('unconfirmed');
         busy = upgrading = false;
         controls(false);
         return;
@@ -383,6 +472,7 @@ async function reconnect(oldBoot) {
   busy = upgrading = false;
   controls(false);
   otaMessage('未能确认重启结果。请查看屏幕；如已闲置退出，请重新进入 LAN 管理并刷新。不要在状态不明时断电。');
+  bridgeResult('unconfirmed');
 }
 byId('upgrade').addEventListener('click', async event => {
   if (!event.isTrusted || busy || ended) return;
@@ -431,11 +521,14 @@ function uploadApplication(file, oldBoot, sha256) {
   xhr.onload = () => {
     if (xhr.status >= 200 && xhr.status < 300) {
       otaMessage('校验通过，正在重启。自动重连并确认新版本/回滚结果…');
+      bridgeResult('rebooting');
       void reconnect(oldBoot);
     } else {
       let reason = '上传被拒绝';
       try { reason = JSON.parse(xhr.responseText).error || reason; } catch (_) {}
       otaMessage(`升级失败：${reason}。可重新选择文件上传。`);
+      if (bridgeRequest) bridgeError(bridgeRequest, 'upload', '设备拒绝上传或完整 SHA256/SDK 校验失败，请查看设备管理。');
+      bridgeRequest = null;
       busy = upgrading = false;
       controls(false);
       void poll();

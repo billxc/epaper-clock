@@ -121,10 +121,10 @@ void management_render(uint8_t *frame, const char *password, const char *ip)
 {
     const render_mode_t mode = render_mode_get();
     char address[96], secret[128];
-    snprintf(address, sizeof(address), "地址：http://%s", ip ? ip : "--");
+    snprintf(address, sizeof(address), "地址：https://%s", ip ? ip : "--");
     snprintf(secret, sizeof(secret), "密码：%s", password ? password : "");
     const char *lines[] = {address, "用户名：admin", secret,
-        "使用已保存的 Wi-Fi 连接局域网", "连续五分钟无操作后返回时钟"};
+        "自签证书，首次独立打开并信任", "连续五分钟无操作后返回时钟"};
     screen_draw(frame, "LAN 管理模式", lines, sizeof(lines) / sizeof(lines[0]), -1, mode);
 }
 

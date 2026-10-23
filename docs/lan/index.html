@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; frame-src https:; img-src 'none'; font-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
+  <title>墨水屏时钟 · 本地 HTTPS 管理（测试）</title>
+  <link rel="stylesheet" href="./lan.css">
+  <script type="module" src="./lan.mjs"></script>
+</head>
+<body>
+<main>
+  <p><a href="../index.html">← 蓝牙 Wi-Fi / 时间设置</a></p>
+  <h1>本地 HTTPS 管理 <small>测试入口</small></h1>
+  <p class="notice">需要已支持 HTTPS 和 iframe 协议的测试固件；旧 HTTP 固件不可连接。此入口不刷写首次测试固件。浏览器兼容性、真实公网 Pages → LAN 权限及实机 OTA 尚待人工验收。</p>
+  <section>
+    <h2>1. 只连接你指定的一个设备</h2>
+    <label for="origin">设备 HTTPS origin（可带端口，仅根地址）</label>
+    <input id="origin" type="text" autocomplete="off" spellcheck="false" placeholder="https://设备地址" aria-describedby="origin-help">
+    <p id="origin-help">允许 IP、localhost、本地 hostname、用户自有 DNS 域名（名称须能解析）及端口。不按 hostname 判定是否为 LAN。只接受 https://主机[:端口] 或其末尾一个 /；不接受用户名密码、路径、查询或 fragment。不扫描 IP 或网段。</p>
+    <div class="actions">
+      <button id="open" type="button">在新窗口打开设备，完成证书信任与登录</button>
+      <button id="connect" type="button">连接iframe</button>
+      <button id="disconnect" type="button">断开并清空地址</button>
+    </div>
+    <p>先在新窗口核对设备身份，按浏览器提示自行处理证书与设备 BasicAuth 登录，再回来连接 iframe。<strong>一次证书例外或顶层登录不保证 iframe 可复用</strong>；切换地址后需重新操作。不要在此父页面输入设备密码、Wi-Fi SSID 或 token。</p>
+    <p id="connection" role="status" aria-live="polite">尚未连接。iframe 加载事件不等于已连接，必须收到设备 ready。</p>
+  </section>
+  <section>
+    <h2>2. 检查并安装 Pages 固件</h2>
+    <p>仅从本 Pages 同源 <code>../firmware/manifest.json</code> 和不可变 app 文件下载。父页校验大小、SHA-256 后将 ArrayBuffer 交给所选 iframe；设备 API 只由 iframe 自己同源调用。SHA 是完整性校验，不是发布者签名。</p>
+    <div class="actions"><button id="check" type="button" disabled>检查更新</button><button id="install" type="button" disabled>安装已检查的固件</button></div>
+    <p id="update" role="status" aria-live="polite">连接设备后可手动检查；不会自动下载或安装。</p>
+    <p><strong>安装需可靠供电，勿关机或拔电。</strong>“上传已接受／正在重启”不代表启动成功；只有设备确认后才显示成功。失败或结果未知时请直接打开设备核对，勿盲目重复安装。</p>
+  </section>
+  <section><h2>设备管理页</h2><div id="frame-host"></div></section>
+  <footer>
+    <p>设备地址仅保留于当前页面内存，不上传服务器、不存 localStorage，不含 analytics 或远端脚本。Pages 服务仍会接收普通网页/固件请求；嵌入及新窗口会直接连接你指定的设备。关闭或断开本页不会撤回已交给设备的安装。</p>
+    <p>超时可能来自证书 / 主机名不匹配、BasicAuth 缓存隔离、设备 CSP、浏览器本地网络访问（LNA）权限或网络连接。保留上方新窗口直接访问作为兜底；不建议关闭浏览器安全检查。详见 <a href="./README.md">测试说明与边界</a>。</p>
+    <noscript>需要启用 JavaScript；不会自动寻找或连接设备。</noscript>
+  </footer>
+</main>
+</body>
+</html>

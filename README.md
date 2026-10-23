@@ -13,6 +13,7 @@ Waveshare **ESP32-S3-ePaper-3.97** 节能时钟，ESP-IDF **5.5.2**，16MB Flash
 - [OTA、首次刷入与回滚](docs/ota.md)
 - [LAN 全局渲染设置：无灰度／线性灰度／轮廓匹配四灰](docs/rendering.md)
 - [电源设置：深睡／PMU 关机、PWR 开机按压阈值](docs/power.md)
+- [HTTPS 设备管理／iframe 测试入口](https://billxc.github.io/epaper-clock/lan/) · [使用与限制](docs/lan/README.md)
 - [四灰模拟与算法评估记录](docs/grayscale-study.md)
 - [exFAT / FAT32 SD 缓存：现有卡、格式与边界](docs/sd-cache.md)
 - [第三方来源与许可](THIRD_PARTY.md)
@@ -85,10 +86,10 @@ iPhone / iPad 普通浏览器通常不支持 Web Bluetooth；可用支持浏览�
 
 选单选择 LAN 后，屏幕显示路由器分配的 IP 和固定的 HTTP 管理密码。
 首次使用时以硬件随机数生成高强度密码，成功保存到 NVS 后才开启 HTTP；以后进入/退出管理、重启、RTC 分钟唤醒、OTA 恢复及普通/强制初始化均不轮换。无密码重置入口；清除 NVS 或覆盖 NVS 的 USB 安装会丢失它。
-在同一可信局域网打开 `http://<屏幕IP>/`，用户名 `admin`，密码不是路由器密码。Basic Auth 保留，HTTP 不加密，仅适用于可信 LAN；密码不会写入串口日志。
+在同一可信局域网独立打开 `https://<屏幕IP>/`（443），用户名 `admin`，密码不是路由器密码。设备首次进入 LAN 后生成并持久化 P-256 自签证书／私钥，保存失败不开临时身份；普通初始化、重启和 OTA 不轮换。先核对设备并处理浏览器证书例外／登录，再使用 Pages iframe；一次例外不保证所有浏览器能嵌入，见[测试说明](docs/lan/README.md)。不再提供 HTTP 80 管理接口，密码和私钥不写串口日志。
 
 - 状态、全局渲染／电源设置、立即校时、固件升级、退出；Wi-Fi 凭据和手动时间只通过加密 BLE 设置。
-- 固件可手动上传，或在 LAN 页“检查更新／在线安装”：浏览器从固定 GitHub Pages HTTPS 源下载独立 app，再上传给设备，设备校验完整 SHA256 及 SDK 镜像后才切换启动槽。先升级一次支持版本才出现按钮，详见[在线 OTA](docs/ota.md#从-github-pages-在线安装)。
+- 固件可手动上传；推荐 Pages 的 HTTPS 设备入口：父页同源检查／下载完整 app、验证 SHA256，经严格消息握手传给设备 iframe，由子页同源 OTA 上传并再次验证。父页不调用设备 API、不接收密码或 SSID。设备顶层的直接在线检查仍作备用。先手动升级支持版本，详见[在线 OTA](docs/ota.md#从-github-pages-在线安装)。
 - 电源设置可选 **PMU 关机／ESP 深睡**及 PWR 开机 **128／512／1000／2000ms**，默认 PMU／1000ms。持久化后由主循环应用。主控运行时 PWR 长按约 4 秒后松手显示关机提示、三帧消隐至白并关闭；10 秒硬件强关始终保留，可跳过动画。深睡整板电流及真实按键唤醒仍待验收。
 - 渲染可选 **无灰度／线性灰度／轮廓匹配四灰**，默认无灰度。保存后无需退出 LAN 或重启，设置会保留；时钟、菜单、配网及提示文字统一应用。灰阶实屏效果仍待验收，恢复入口见 [渲染说明](docs/rendering.md)。
 - **连续 5 分钟无用户交互返回时钟**。按键、主动网页操作/访问重置计时，自动状态轮询不算。
@@ -126,7 +127,7 @@ idf.py -p /dev/ttyACM0 flash
 ```
 
 [Firmware 构建与下载](https://github.com/billxc/epaper-clock/actions/workflows/firmware.yml)：选择最新成功的构建，产物名 `epaper-clock-firmware`。
-当前布局为 **7.5MiB × 2 OTA 槽**，尾部保留 896KiB 未分配空间。应用约 **2.733MiB**，每槽剩余约 **4.767MiB**。
+当前布局为 **7.5MiB × 2 OTA 槽**，尾部保留 896KiB 未分配空间。应用约 **2.808MiB**，每槽剩余约 **4.692MiB**。
 产物附带 `partitions.csv`：OTA A 位于 `0x20000`，OTA B 位于 `0x7a0000`，两槽大小均为 `0x780000`。
 首次通过 USB 安装完整文件组；日常 LAN OTA 只更新非运行应用槽，不修改分区表。
 
@@ -139,7 +140,7 @@ idf.py -p /dev/ttyACM0 flash
 
 ## 安全与验证边界
 
-HTTP Basic 没有 TLS，只适用于可信 LAN，不开放公网。OTA 校验镜像/芯片/项目和内容完整性，**不是发布者数字签名**。
+管理使用 HTTPS＋Basic Auth，设备自签证书不等于公共 CA 信任；首次接受例外仍须核对设备／可信 LAN，不开放公网。证书 SAN 包含首次 IP，建议固定 DHCP 地址；IP 变化不自动换证书，可能出现名称警告。NVS 中私钥未加密，不防物理提取。OTA 校验镜像/芯片/项目和内容完整性，**不是发布者数字签名**。
 NVS 未启用 Flash 加密，不防物理读取。已有 Git 历史及作者邮箱按授权保留，新代码不写入真实用户凭据或本机私有路径。
 中文位图字库来自 Noto Sans SC，遵守 OFL 1.1；其余许可证见 [THIRD_PARTY.md](THIRD_PARTY.md)。
 

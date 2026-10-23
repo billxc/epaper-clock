@@ -7,7 +7,14 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const http = require('node:http');
 const crypto = require('node:crypto');
-const html = fs.readFileSync(require('node:path').join(__dirname, '../main/admin.html'));
+const path = require('node:path');
+const html = fs.readFileSync(path.join(__dirname, '../main/admin.html'));
+const adminSource = fs.readFileSync(path.join(__dirname, '../main/admin.c'), 'utf8');
+const rootPolicies = [...adminSource.matchAll(/httpd_resp_set_hdr\(r,\s*"Content-Security-Policy",\s*"(default-src[^"\r\n]+)"\)/g)];
+assert.equal(rootPolicies.length, 1, 'expected exactly one production root CSP literal');
+const productionCSP = rootPolicies[0][1];
+const legacyCSP = productionCSP.replace(/connect-src[^;]+;/, "connect-src 'self';");
+assert.notEqual(legacyCSP, productionCSP, 'production CSP must allow fixed Pages fetch');
 const app = Buffer.alloc(336);
 app[0] = 0xe9; app.writeUInt16LE(9, 12); app.writeUInt32LE(0xabcd5432, 32);
 app.write('bbbbbbb', 48); app.write('epaper-clock', 80);
@@ -26,7 +33,11 @@ const server = http.createServer(async (req, res) => {
   if (req.headers.authorization !== auth) {res.writeHead(401, {'WWW-Authenticate':'Basic realm="test"'}); res.end(); return;}
   let body = Buffer.alloc(0);
   for await (const chunk of req) body = Buffer.concat([body, chunk]);
-  if (req.url === '/') {res.setHeader('Content-Type','text/html');res.end(html);return;}
+  if (req.url === '/') {
+    res.setHeader('Content-Type','text/html');
+    res.setHeader('Content-Security-Policy',scenario.csp);
+    res.end(html);return;
+  }
   res.setHeader('Content-Type','application/json');
   if (req.url === '/api/status') {
     if (scenario.statusFail) {res.writeHead(503);res.end('{"error":"session unavailable"}');return;}
@@ -48,13 +59,22 @@ const server = http.createServer(async (req, res) => {
   const origin = `http://lan-clock.test:${server.address().port}`;
   const browser = await chromium.launch({headless:true, chromiumSandbox:true, args:['--host-resolver-rules=MAP lan-clock.test 127.0.0.1','--no-proxy-server']});
   let total = 0;
-  async function setup() {
+  async function setup(csp = productionCSP) {
     reset();
+    scenario.csp = csp;
+    scenario.publicRequests = 0;
     const context = await browser.newContext({httpCredentials:{username:'admin',password:'test-only-password',origin}});
     const page = await context.newPage();
     page.on('pageerror', error => { throw error; });
     page.on('dialog', dialog => dialog.accept());
+    await page.addInitScript(() => {
+      window.policyViolations = [];
+      document.addEventListener('securitypolicyviolation', event => {
+        policyViolations.push({directive:event.effectiveDirective, blockedURI:event.blockedURI});
+      });
+    });
     await page.route('https://billxc.github.io/**', async route => {
+      scenario.publicRequests++;
       const request = route.request(), headers = await request.allHeaders();
       assert.equal(headers.authorization, undefined, 'LAN Basic credential leaked to Pages');
       assert.equal(headers.cookie, undefined);
@@ -68,7 +88,8 @@ const server = http.createServer(async (req, res) => {
         contentType:manifestRequest?'application/json':'application/octet-stream',
         body:manifestRequest?JSON.stringify(scenario.manifest):app});
     });
-    await page.goto(origin);
+    const response = await page.goto(origin);
+    assert.equal(response.headers()['content-security-policy'], csp);
     await page.waitForFunction(()=>document.querySelector('#version').textContent === 'aaaaaaa');
     assert.deepEqual(await page.evaluate(()=>[isSecureContext, typeof crypto.subtle]), [false, 'undefined']);
     assert(await page.locator('#install-update').isDisabled());
@@ -79,6 +100,20 @@ const server = http.createServer(async (req, res) => {
     await page.waitForFunction(()=>!document.querySelector('#check-update').disabled);
   }
   try {
+    {
+      // Only connect-src differs: browser blocks the manifest BEFORE any Pages
+      // request, despite the fixture's valid CORS response. This is not CORS.
+      const {page, context} = await setup(legacyCSP);
+      await check(page);
+      assert.match(await page.textContent('#update-message'), /检查失败.*Failed to fetch/);
+      await page.waitForFunction(() => policyViolations.some(v =>
+        v.directive === 'connect-src' && v.blockedURI ===
+        'https://billxc.github.io/epaper-clock/firmware/manifest.json'));
+      assert.equal(scenario.publicRequests,0);
+      assert.equal(scenario.downloads,0); assert.equal(scenario.posted.length,0);
+      assert(await page.locator('#install-update').isDisabled());
+      await context.close(); total++;
+    }
     {
       const {page, context} = await setup();
       await page.selectOption('#render-mode','linear'); await page.selectOption('#sleep-mode','deep_sleep');
@@ -162,6 +197,6 @@ const server = http.createServer(async (req, res) => {
       assert.equal(scenario.downloads,0); assert.equal(scenario.posted.length,0);
       await context.close(); total++;
     }
-    console.log(`admin HTTP non-secure update browser: ${total} scenarios passed (mock only)`);
+    console.log(`admin HTTP non-secure update browser: ${total} scenarios passed (production root CSP; includes legacy connect-src self rejection; mock only)`);
   } finally {await browser.close(); await new Promise(resolve=>server.close(resolve));}
 })().catch(error=>{console.error(error); process.exitCode=1; server.close();});
