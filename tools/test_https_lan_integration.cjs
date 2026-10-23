@@ -214,6 +214,7 @@ async function main() {
     assert.match(newHello.nonce, hex32); assert.notEqual(newHello.nonce, hello.nonce);
     await page.locator('#check').click();
     await waitText('update', '设备已经是此版本');
+    assert(!(await page.locator('#update').textContent()).includes('检查失败'));
     assert(await page.locator('#install').isDisabled());
     assert.equal(uploads.length, 1); assert.equal(activity, 1);
     assert.equal(requests.filter(r => r.url === binURL).length, 1);

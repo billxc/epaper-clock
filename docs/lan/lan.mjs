@@ -194,6 +194,10 @@ export function start(doc = document) {
       const text = new TextDecoder('utf-8', {fatal:true}).decode(await readLimited(response, 16384));
       const m = validateManifest(JSON.parse(text));
       if (!current(s) || signal.aborted) return;
+      if (m.version === s.ready.version) {
+        el.update.textContent = `设备已经是此版本 ${m.version}，无需重复安装。`;
+        return;
+      }
       compatible(s, m); s.manifest = m;
       el.update.textContent = `可安装 ${m.version}，${m.size} 字节，source commit ${m.commit}。尚未下载或安装。`;
     } catch (error) {
